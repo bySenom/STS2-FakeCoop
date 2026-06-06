@@ -114,3 +114,10 @@
 - Enter an elite/boss or dangerous turn with meaningful incoming damage.
 - Expected result: if a potion is selected, it should appear early in the combat line, before attacks/payoff cards that benefit from it.
 - Check logs for `Combat score ... category=Potion` and `Combat line ... actions=[use_potion_...`.
+
+## Coop Target Overkill Check
+
+- Enter a multi-enemy combat with at least two AI-controlled players able to attack.
+- Put one enemy at low HP and leave another target alive.
+- Expected result: after the first bot queues lethal damage on the low-HP enemy, later bots should avoid overkilling that same enemy when they have another useful target.
+- Check logs for `reserved team damage` and compare later `Combat score`/`Combat line` target choices.

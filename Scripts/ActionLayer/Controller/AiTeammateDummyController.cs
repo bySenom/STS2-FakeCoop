@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MegaCrit.Sts2.Core.Entities.Actions;
+using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.GameActions;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
@@ -17,6 +18,11 @@ namespace AITeammate.Scripts;
 internal sealed partial class AiTeammateDummyController
 {
     private static readonly IAiDecisionBackend DecisionBackend = AiDecisionBackendFactory.CreateDefault();
+    private static readonly ICardResolver CombatPlanCardResolver = new CardResolver(
+        CardCatalogRepository.Shared,
+        new CardDefinitionRepository(),
+        new RunCardStateStore(),
+        new CombatCardStateStore());
     private static readonly TimeSpan IdleTickInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan EndTurnGraceInterval = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan ActionSettleTimeout = TimeSpan.FromMilliseconds(5000);
@@ -38,6 +44,7 @@ internal sealed partial class AiTeammateDummyController
     private int _combatRoundWaitingForInitialHand = -1;
     private DateTime _combatInitialHandWaitStartedAtUtc = DateTime.MinValue;
     private PendingIssuedActionSettlement? _pendingIssuedActionSettlement;
+    private string? _pendingTeamCombatPlanActionId;
 
     public AiTeammateDummyController(int slotIndex, ulong playerId, CharacterModel character)
     {
@@ -244,6 +251,7 @@ internal sealed partial class AiTeammateDummyController
     {
         try
         {
+            TryRegisterPendingTeamCombatDamagePlan(action);
             AiActionExecutionResult executionResult = await action.ExecuteAsync();
             if (!string.IsNullOrEmpty(action.DeduplicationKey))
             {
@@ -257,6 +265,7 @@ internal sealed partial class AiTeammateDummyController
             }
             else
             {
+                ClearPendingTeamCombatDamagePlan(action.ActionId);
                 Log.Info($"[AITeammate] Player={PlayerId} executed non-tracked actionId={action.ActionId}");
                 if (IsCombatEndTurnAction(action.ActionId) &&
                     TryGetControlledPlayer(out Player controlledPlayer, out _))
@@ -267,12 +276,64 @@ internal sealed partial class AiTeammateDummyController
         }
         catch (Exception exception)
         {
+            ClearPendingTeamCombatDamagePlan(action.ActionId);
             Log.Warn($"[AITeammate] Dummy controller {PlayerId} failed to execute actionId={action.ActionId}: {exception}");
         }
         finally
         {
             _isExecutingAction = false;
         }
+    }
+
+    private void TryRegisterPendingTeamCombatDamagePlan(AiTeammateAvailableAction action)
+    {
+        if (!string.Equals(action.ActionType, AiTeammateActionKind.PlayCard.ToString(), StringComparison.Ordinal) ||
+            string.IsNullOrEmpty(action.CardInstanceId) ||
+            string.IsNullOrEmpty(action.TargetId) ||
+            !action.TargetId.StartsWith("creature_", StringComparison.Ordinal) ||
+            !TryGetControlledPlayer(out Player player, out _))
+        {
+            return;
+        }
+
+        CardModel? card = PileType.Hand.GetPile(player).Cards
+            .FirstOrDefault(candidate => string.Equals(GetCardInstanceId(candidate), action.CardInstanceId, StringComparison.Ordinal));
+        if (card == null)
+        {
+            return;
+        }
+
+        ResolvedCardView resolvedCard = CombatPlanCardResolver.Resolve(card, action.CardInstanceId);
+        int damage = resolvedCard.GetEstimatedDamage();
+        if (damage <= 0)
+        {
+            return;
+        }
+
+        int damageHits = resolvedCard.Effects
+            .Where(static effect => effect.Kind == EffectKind.DealDamage)
+            .Sum(static effect => Math.Max(effect.RepeatCount, 1));
+        damageHits = Math.Max(damageHits, 1);
+        int strength = player.Creature.Powers
+            .Where(static power => string.Equals(power.Id.Entry, "STRENGTH", StringComparison.OrdinalIgnoreCase))
+            .Sum(static power => power.DisplayAmount);
+        damage += strength * damageHits;
+
+        int roundNumber = player.Creature.CombatState?.RoundNumber ?? -1;
+        PendingTeamCombatPlanStore.RegisterDamagePlan(PlayerId, action.ActionId, action.TargetId, damage, roundNumber);
+        _pendingTeamCombatPlanActionId = action.ActionId;
+        Log.Debug($"[AITeammate] Player={PlayerId} reserved team damage actionId={action.ActionId} target={action.TargetId} damage={damage} round={roundNumber}");
+    }
+
+    private void ClearPendingTeamCombatDamagePlan(string actionId)
+    {
+        if (!string.Equals(_pendingTeamCombatPlanActionId, actionId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        PendingTeamCombatPlanStore.ClearPlan(PlayerId, actionId);
+        _pendingTeamCombatPlanActionId = null;
     }
 
     private static string BuildActionSetFingerprint(IReadOnlyList<AiTeammateAvailableAction> actions)
@@ -580,6 +641,7 @@ internal sealed partial class AiTeammateDummyController
         }
 
         Log.Info($"[AITeammate] Player={PlayerId} ready to replan after actionId={settlement.ActionId} timeoutFallback={settlement.WasTimeoutFallback}");
+        ClearPendingTeamCombatDamagePlan(settlement.ActionId);
         _pendingIssuedActionSettlement = null;
         return false;
     }

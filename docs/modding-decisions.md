@@ -102,3 +102,11 @@
 - Reasoning: potions are limited resources. The bot should not spend them in normal fights or at the end of a turn just because they are legal actions.
 - Need policy: grave danger, meaningful incoming damage, elite/boss pressure, or an offensive potion with useful follow-up can justify potion use. Low-value potions are excluded from combat line planning so end turn can win.
 - Verification: in a safe normal fight, held potions should remain unused. In an elite/boss or dangerous turn, a chosen potion should appear early in the planned line before payoff cards.
+
+## Coop Target Overkill Discipline
+
+- Patch points: `AiTeammateDummyController`, `DeterministicCombatContextBuilder`, `CombatActionScorer`, and `CombatTurnLinePlanner`.
+- Decision: when an AI/auto-mode player queues targeted damage, temporarily reserve that damage by enemy target until the queued action settles.
+- Reasoning: teammates act close together and can otherwise waste multiple attacks on an enemy that is already about to die. Reserving pending damage lets the next bot see the target as effectively lower HP or already covered.
+- Scoring policy: targets already covered by pending teammate damage receive a strong penalty, and targeted overkill is penalized. Combat line damage is capped to remaining useful HP after pending teammate damage.
+- Verification: in a multi-enemy fight, if one bot queues lethal damage on a low-HP enemy, later bots should prefer another enemy or non-attack action instead of piling more attacks into the same target.

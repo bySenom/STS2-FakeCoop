@@ -502,18 +502,24 @@ internal sealed class CombatTurnLinePlanner
                     dealtDamage += (int)Math.Ceiling(dealtDamage * 0.5m);
                 }
 
-                next.TotalDamageDealt += dealtDamage;
-                next._damageByTargetId[action.Action.TargetId] = next._damageByTargetId.GetValueOrDefault(action.Action.TargetId) + dealtDamage;
-
                 if (!next._deadEnemyIds.Contains(action.Action.TargetId) &&
                     context.EnemiesById.TryGetValue(action.Action.TargetId, out DeterministicEnemyState? enemy))
                 {
-                    int effectiveEnemyHp = enemy.CurrentHp + enemy.Block;
-                    if (next._damageByTargetId[action.Action.TargetId] >= effectiveEnemyHp)
+                    int effectiveEnemyHp = GetTeamAdjustedEnemyHp(context, action.Action.TargetId, enemy);
+                    int damageBefore = next._damageByTargetId.GetValueOrDefault(action.Action.TargetId);
+                    int remainingEnemyHp = Math.Max(0, effectiveEnemyHp - damageBefore);
+                    next.TotalDamageDealt += Math.Min(dealtDamage, remainingEnemyHp);
+                    next._damageByTargetId[action.Action.TargetId] = damageBefore + dealtDamage;
+                    if (next._damageByTargetId[action.Action.TargetId] >= effectiveEnemyHp && effectiveEnemyHp > 0)
                     {
                         next._deadEnemyIds.Add(action.Action.TargetId);
                         next.DamagePreventedByKills += enemy.IncomingDamage;
                     }
+                }
+                else
+                {
+                    next.TotalDamageDealt += dealtDamage;
+                    next._damageByTargetId[action.Action.TargetId] = next._damageByTargetId.GetValueOrDefault(action.Action.TargetId) + dealtDamage;
                 }
             }
 
@@ -639,6 +645,12 @@ internal sealed class CombatTurnLinePlanner
             }
 
             return score;
+        }
+
+        private static int GetTeamAdjustedEnemyHp(DeterministicCombatContext context, string targetId, DeterministicEnemyState enemy)
+        {
+            int pendingTeamDamage = context.PendingTeamDamageByEnemyId.TryGetValue(targetId, out int damage) ? damage : 0;
+            return Math.Max(0, enemy.CurrentHp + enemy.Block - pendingTeamDamage);
         }
 
         private int CountAffordableUnconsumedActions(LineNode node, DeterministicCombatContext context, bool requireDamage = false, bool requireBlock = false)

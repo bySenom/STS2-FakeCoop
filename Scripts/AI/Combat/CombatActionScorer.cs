@@ -9,6 +9,8 @@ namespace AITeammate.Scripts;
 internal sealed class CombatActionScorer
 {
     private const int RedundantBlockOnlyScore = -100000;
+    private const int TeamReservedKillPenalty = 110;
+    private const int OverkillPenaltyPerPoint = 3;
 
     public CombatActionScore Score(DeterministicCombatContext context, AiLegalActionOption action)
     {
@@ -157,8 +159,20 @@ internal sealed class CombatActionScorer
         if (!string.IsNullOrEmpty(action.TargetId) &&
             context.EnemiesById.TryGetValue(action.TargetId, out DeterministicEnemyState? enemy))
         {
-            int effectiveHp = enemy.CurrentHp + enemy.Block;
-            score += Math.Max(0, core.TargetLowHealthBiasThreshold - effectiveHp) * core.TargetLowHealthBiasValuePerPoint;
+            int effectiveHp = GetTeamAdjustedEnemyHp(context, action.TargetId, enemy);
+            if (effectiveHp <= 0)
+            {
+                score -= TeamReservedKillPenalty + damage * OverkillPenaltyPerPoint;
+            }
+            else
+            {
+                score += Math.Max(0, core.TargetLowHealthBiasThreshold - effectiveHp) * core.TargetLowHealthBiasValuePerPoint;
+                if (context.EnemiesById.Count > 1 && damage > effectiveHp)
+                {
+                    score -= (damage - effectiveHp) * OverkillPenaltyPerPoint;
+                }
+            }
+
             if (enemy.IsAttacking)
             {
                 score += core.AttackingTargetBonus;
@@ -321,13 +335,24 @@ internal sealed class CombatActionScorer
         }
 
         int estimatedDamage = card.GetEstimatedDamage();
-        int effectiveEnemyHp = enemy.CurrentHp + enemy.Block;
+        int effectiveEnemyHp = GetTeamAdjustedEnemyHp(context, action.TargetId, enemy);
+        if (effectiveEnemyHp <= 0)
+        {
+            return -TeamReservedKillPenalty;
+        }
+
         if (estimatedDamage >= effectiveEnemyHp)
         {
             return risk.LethalPriorityBonus + enemy.IncomingDamage * risk.LethalIncomingDamageValue;
         }
 
         return 0;
+    }
+
+    private static int GetTeamAdjustedEnemyHp(DeterministicCombatContext context, string targetId, DeterministicEnemyState enemy)
+    {
+        int pendingTeamDamage = context.PendingTeamDamageByEnemyId.TryGetValue(targetId, out int damage) ? damage : 0;
+        return Math.Max(0, enemy.CurrentHp + enemy.Block - pendingTeamDamage);
     }
 
     private static int ScoreUtility(DeterministicCombatContext context, AiLegalActionOption action)

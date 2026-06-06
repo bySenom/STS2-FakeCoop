@@ -18,6 +18,8 @@ internal sealed class DeterministicCombatContext
 
     public required Dictionary<string, DeterministicEnemyState> EnemiesById { get; init; }
 
+    public required IReadOnlyDictionary<string, int> PendingTeamDamageByEnemyId { get; init; }
+
     public required Dictionary<string, int> ActorPowerAmounts { get; init; }
 
     public required HashSet<string> ActorRelicIds { get; init; }

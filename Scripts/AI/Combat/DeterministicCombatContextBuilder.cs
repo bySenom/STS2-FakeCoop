@@ -50,6 +50,7 @@ internal sealed class DeterministicCombatContextBuilder
 
         Dictionary<string, DeterministicEnemyState> enemiesById = new(StringComparer.Ordinal);
         int incomingDamage = 0;
+        int combatRound = player.Creature.CombatState.RoundNumber;
         foreach (Creature enemy in player.Creature.CombatState.HittableEnemies)
         {
             int enemyDamage = EstimateIncomingDamage(enemy, player.Creature);
@@ -79,6 +80,7 @@ internal sealed class DeterministicCombatContextBuilder
             HandCardsByInstanceId = handCardsByInstanceId,
             DeckCards = deckCards,
             EnemiesById = enemiesById,
+            PendingTeamDamageByEnemyId = PendingTeamCombatPlanStore.GetPendingDamageByTarget(player.NetId, combatRound),
             ActorPowerAmounts = actorPowerAmounts,
             ActorRelicIds = actorRelicIds,
             ActiveBuild = AiBuildProfileAnalyzer.SelectActiveProfile(player, deckCards),
