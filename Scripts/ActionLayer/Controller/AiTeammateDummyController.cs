@@ -185,7 +185,7 @@ internal sealed partial class AiTeammateDummyController
     private static bool IsCombatDecisionWindow(Player player)
     {
         return MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsInProgress &&
-               MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsPlayPhase &&
+               MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsPartOfPlayerTurn(player) &&
                player.Creature.CombatState?.CurrentSide == player.Creature.Side &&
                !MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsPlayerReadyToEndTurn(player);
     }

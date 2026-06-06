@@ -35,7 +35,7 @@ internal static class ShopInventoryResolver
             VirtualMerchantStates.Remove(player.NetId);
             return new ResolvedMerchantInventory
             {
-                Inventory = merchantRoom.Inventory,
+                Inventory = merchantRoom.GetLocalInventory(),
                 ExecutionMode = ShopExecutionMode.LocalSharedUi,
                 RoomVisitKey = roomVisitKey,
                 VisitCompleted = false

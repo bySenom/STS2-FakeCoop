@@ -210,7 +210,7 @@ internal static class AiTeammateSaveSupport
             }
 
             RunState runState = RunState.FromSerializable(savedRun.SaveData);
-            RunManager.Instance.SetUpSavedMultiPlayer(runState, lobby);
+            await RunManager.Instance.SetUpSavedMultiplayer(runState, lobby);
             await game.LoadRun(runState, savedRun.SaveData.PreFinishedRoom);
             lobby.CleanUp(disconnectSession: false);
             await game.Transition.FadeIn();

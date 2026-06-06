@@ -163,7 +163,7 @@ internal sealed partial class AiTeammateDummyController
                 await ExecuteDeterministicCardRewardAsync(cardReward);
                 return;
             case PotionReward potionReward:
-                if (await potionReward.OnSelectWrapper())
+                if (await potionReward.SelectUnsynchronized())
                 {
                     return;
                 }
@@ -180,7 +180,7 @@ internal sealed partial class AiTeammateDummyController
                 {
                     Log.Info($"[AITeammate] Potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
                     await PotionCmd.Discard(currentPotion);
-                    await potionReward.OnSelectWrapper();
+                    await potionReward.SelectUnsynchronized();
                 }
                 else if (incomingPotion != null)
                 {
@@ -189,7 +189,7 @@ internal sealed partial class AiTeammateDummyController
 
                 return;
             default:
-                await reward.OnSelectWrapper();
+                await reward.SelectUnsynchronized();
                 return;
         }
     }
@@ -221,9 +221,18 @@ internal sealed partial class AiTeammateDummyController
             return Task.FromResult(selected);
         }
 
-        public CardModel? GetSelectedCardReward(IReadOnlyList<CardCreationResult> options, IReadOnlyList<CardRewardAlternative> alternatives)
+        public CardRewardSelection GetSelectedCardReward(IReadOnlyList<CardCreationResult> options, IReadOnlyList<CardRewardAlternative> alternatives)
         {
-            return options.FirstOrDefault()?.Card;
+            CardCreationResult? selected = options.FirstOrDefault();
+            if (selected == null)
+            {
+                return default;
+            }
+
+            return new CardRewardSelection
+            {
+                card = selected.Card
+            };
         }
     }
 }

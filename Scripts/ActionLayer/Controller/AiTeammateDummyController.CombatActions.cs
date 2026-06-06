@@ -26,7 +26,7 @@ internal sealed partial class AiTeammateDummyController
     private IReadOnlyList<AiTeammateAvailableAction> DiscoverCombatActions(Player player)
     {
         List<AiTeammateAvailableAction> actions = [];
-        Log.Debug($"[AITeammate] DiscoverCombatActions player={player.NetId} roomCount={player.RunState.CurrentRoomCount} currentRoom={player.RunState.CurrentRoom?.GetType().Name ?? "null"} inProgress={CombatManager.Instance.IsInProgress} playPhase={CombatManager.Instance.IsPlayPhase}");
+        Log.Debug($"[AITeammate] DiscoverCombatActions player={player.NetId} roomCount={player.RunState.CurrentRoomCount} currentRoom={player.RunState.CurrentRoom?.GetType().Name ?? "null"} inProgress={CombatManager.Instance.IsInProgress} playerTurn={CombatManager.Instance.IsPartOfPlayerTurn(player)}");
 
         foreach (CardModel card in PileType.Hand.GetPile(player).Cards)
         {
@@ -118,7 +118,7 @@ internal sealed partial class AiTeammateDummyController
 
     private static IEnumerable<Creature?> GetOrderedTargets(TargetType targetType, Player player)
     {
-        CombatState? combatState = player.Creature.CombatState;
+        ICombatState? combatState = player.Creature.CombatState;
         if (combatState == null)
         {
             return new Creature?[] { null };
