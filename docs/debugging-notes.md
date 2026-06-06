@@ -67,6 +67,8 @@
 - Modded reward pools with more than three cards should be evaluated as one candidate list.
 - AI teammates should still resolve their own rewards deterministically after the host reward flow completes.
 - Press `F4` again to disable host auto-mode.
+- If the reward window does not open while auto-mode is enabled, confirm logs show `Deterministically resolving reward offer`, `GoldReward`, and either `Deterministic card reward picked` or `Deterministic card reward skipped`.
+- The action queue wait should not spam `InvalidOperationException` when the front queued action is still `Executing`.
 
 ## Build-Aware Combat Rotation Check
 

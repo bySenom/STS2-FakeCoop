@@ -594,7 +594,17 @@ internal sealed partial class AiTeammateDummyController
             return false;
         }
 
-        GameAction? readyAction = RunManager.Instance.ActionQueueSet.GetReadyAction();
+        GameAction? readyAction;
+        try
+        {
+            readyAction = RunManager.Instance.ActionQueueSet.GetReadyAction();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Log.Debug($"[AITeammate] Player={PlayerId} waiting for action queue to stabilize after actionId={settlement.ActionId}; ready action unavailable: {ex.Message}");
+            return false;
+        }
+
         if (readyAction != null &&
             ActionQueueSet.IsGameActionPlayerDriven(readyAction) &&
             readyAction.OwnerId == PlayerId)
