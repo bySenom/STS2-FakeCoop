@@ -28,10 +28,11 @@
 
 ## Relic Choice Heuristics
 
-- Patch point: `RelicSelectCmd.FromChooseARelicScreen`.
-- Decision: replace first-relic selection with `AiRelicChoiceEvaluator`.
+- Patch points: `RelicSelectCmd.FromChooseARelicScreen` and `TreasureRoomRelicSynchronizer.BeginRelicPicking`.
+- Decision: replace first-relic selection with `AiRelicChoiceEvaluator`; for shared treasure rooms, evaluate every available relic for every auto-controlled player and assign unique picks that maximize total team score when enough relics are available.
 - Reasoning: relic choice should account for active build profiles first, then broad deck synergies such as Exhaust plus Dead Branch, attack-spam plus Shuriken/Kunai, orb evidence plus Inserter/Data Disk, high-cost decks plus Snecko, and starter Strike density plus Strike Dummy.
-- Verification: trigger a relic choice screen for an AI teammate and confirm logs show `[AITeammate] Relic evaluation rank`.
+- Host policy: normal host play remains manual. When host auto-mode is enabled, the host joins the coordinated treasure assignment.
+- Verification: trigger a relic choice screen for an AI teammate and confirm logs show `[AITeammate] Relic evaluation rank`; in treasure rooms confirm logs show `Treasure relic coordinated assignment`.
 
 ## Rest Site Upgrade Support
 

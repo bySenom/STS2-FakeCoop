@@ -34,6 +34,9 @@
 - Check the log lines beginning with `[AITeammate] Relic evaluation rank`.
 - Expected result: build-profile key relics get priority when the deck has profile evidence.
 - Shop relic offers also receive build-profile key/good/avoid relic adjustments.
+- Trigger a treasure room with shared relic choices.
+- Expected result: logs show `Treasure relic team evaluation` and `Treasure relic coordinated assignment`; AI teammates should avoid taking the same relic index when enough relics are available.
+- With host auto-mode enabled, the host is included in the coordinated treasure assignment.
 
 ## Rest Site Upgrade Check
 
