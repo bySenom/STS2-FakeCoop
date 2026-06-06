@@ -83,6 +83,57 @@ internal static class AiTeammateCardSelectionPatches
         }
     }
 
+    [HarmonyPatch(typeof(CardSelectCmd), nameof(CardSelectCmd.FromCombatPile), new[] { typeof(PlayerChoiceContext), typeof(CardPile), typeof(Player), typeof(CardSelectorPrefs) })]
+    private static class CardSelectCombatPilePatch
+    {
+        private static bool Prefix(
+            PlayerChoiceContext context,
+            CardPile pile,
+            Player player,
+            CardSelectorPrefs prefs,
+            ref Task<IEnumerable<CardModel>> __result)
+        {
+            if (!AiTeammateDummyController.IsAiPlayer(player))
+            {
+                return true;
+            }
+
+            __result = AiTeammateDummyController.ChooseDeterministicCardsAsync(
+                context,
+                pile.Cards,
+                prefs.MinSelect,
+                prefs.MaxSelect,
+                PlayerChoiceOptions.CancelPlayCardActions);
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(CardSelectCmd), nameof(CardSelectCmd.FromCombatPile), new[] { typeof(PlayerChoiceContext), typeof(CardPile), typeof(Player), typeof(CardSelectorPrefs), typeof(Func<CardModel, bool>) })]
+    private static class CardSelectCombatPileWithFilterPatch
+    {
+        private static bool Prefix(
+            PlayerChoiceContext context,
+            CardPile pile,
+            Player player,
+            CardSelectorPrefs prefs,
+            Func<CardModel, bool> filter,
+            ref Task<IEnumerable<CardModel>> __result)
+        {
+            if (!AiTeammateDummyController.IsAiPlayer(player))
+            {
+                return true;
+            }
+
+            __result = AiTeammateDummyController.ChooseDeterministicCardsAsync(
+                context,
+                pile.Cards.Where(filter),
+                prefs.MinSelect,
+                prefs.MaxSelect,
+                PlayerChoiceOptions.CancelPlayCardActions);
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(CardSelectCmd), nameof(CardSelectCmd.FromDeckForUpgrade))]
     private static class CardSelectDeckUpgradePatch
     {

@@ -12,3 +12,9 @@
 - Enter a combat with multiple hittable enemies.
 - Confirm logs show multiple legal `play_card_*_target_*` actions for single-target attacks when more than one target is valid.
 - Expected result: the combat scorer can choose between enemy targets instead of always using the first ordered target.
+
+## Combat Pile Selection Check
+
+- Test an AI teammate with `NeowsFury` and at least one card in the discard pile.
+- Expected result: after the attack resolves, the AI automatically selects cards from the combat pile prompt instead of stalling on the selection screen.
+- Relevant patch: `CardSelectCmd.FromCombatPile` in `AiTeammateCardSelectionPatches`.
