@@ -82,3 +82,10 @@
 - Expected result: the line planner prefers filling/building orb setup before `Dualcast`, `Multi-Cast`, `Recursion`, or other orb payoff when no emergency overrides it.
 - Regent: test star builds with `Guiding Star`, `Falling Star`, `Stardust`, `Seven Stars`, `Glow`, `Convergence`, or `Venerate`.
 - Expected result: star setup is played before payoff cards such as `Gamma Blast`, `Photon Cut`, `Meteor Shower`, `Big Bang`, or `Bombardment` when affordable.
+
+## Block Discipline Check
+
+- Enter combat where enemies deal low incoming damage, such as 5.
+- Give the bot at least two pure block cards and one useful damage/setup card.
+- Expected result: after incoming damage is covered, the bot should not spend another action on pure block unless it has block retention.
+- Check logs for `blocked redundant block-only` when a redundant block action is scored.

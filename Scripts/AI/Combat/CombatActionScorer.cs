@@ -8,6 +8,8 @@ namespace AITeammate.Scripts;
 
 internal sealed class CombatActionScorer
 {
+    private const int RedundantBlockOnlyScore = -100000;
+
     public CombatActionScore Score(DeterministicCombatContext context, AiLegalActionOption action)
     {
         AiCharacterCombatTuning tuning = context.CombatConfig.Combat;
@@ -41,6 +43,17 @@ internal sealed class CombatActionScorer
                 ActionId = action.ActionId,
                 Category = CombatActionCategory.Utility,
                 TotalScore = ScoreUtility(context, action)
+            };
+        }
+
+        if (IsRedundantBlockOnly(context, card))
+        {
+            Log.Debug($"[AITeammate] Semantic score blocked redundant block-only actionId={action.ActionId} card={card.CardId} incoming={context.IncomingDamage} currentBlock={context.CurrentBlock}.");
+            return new CombatActionScore
+            {
+                ActionId = action.ActionId,
+                Category = CombatActionCategory.Block,
+                TotalScore = RedundantBlockOnlyScore
             };
         }
 
@@ -173,7 +186,10 @@ internal sealed class CombatActionScorer
         if (block > 0)
         {
             score += blockedDamage * risk.BlockedDamageValuePerPoint;
-            score += Math.Max(0, block - uncoveredDamage) * risk.ExcessBlockValuePerPoint;
+            int excessBlock = Math.Max(0, block - uncoveredDamage);
+            score += context.HasBlockRetention
+                ? excessBlock * risk.ExcessBlockValuePerPoint
+                : -(excessBlock * Math.Max(2, risk.ExcessBlockValuePerPoint + 2));
             if (uncoveredDamage > 0 && block >= uncoveredDamage)
             {
                 score += risk.FullBlockCoverageBonus;
@@ -602,5 +618,27 @@ internal sealed class CombatActionScorer
         return context.LegalActions
             .Where(action => string.Equals(action.ActionType, AiTeammateActionKind.UsePotion.ToString(), StringComparison.Ordinal))
             .All(action => ScorePotion(context, action) <= 0);
+    }
+
+    private static bool IsRedundantBlockOnly(DeterministicCombatContext context, ResolvedCardView card)
+    {
+        if (context.HasBlockRetention || Math.Max(0, context.IncomingDamage - context.CurrentBlock) > 0)
+        {
+            return false;
+        }
+
+        return IsBlockOnlyDefense(card);
+    }
+
+    private static bool IsBlockOnlyDefense(ResolvedCardView card)
+    {
+        return card.GetEstimatedBlock() > 0 &&
+               card.GetEstimatedDamage() <= 0 &&
+               card.GetCardsDrawn() <= 0 &&
+               card.GetEnergyGain() <= 0 &&
+               card.GetEnemyWeakAmount() <= 0 &&
+               card.GetEnemyVulnerableAmount() <= 0 &&
+               card.GetSelfStrengthAmount() <= 0 &&
+               card.GetSelfDexterityAmount() <= 0;
     }
 }

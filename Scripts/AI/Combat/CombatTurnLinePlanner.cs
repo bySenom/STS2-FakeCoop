@@ -8,6 +8,7 @@ internal sealed class CombatTurnLinePlanner
 {
     private const int MaxLineLength = 3;
     private const int BeamWidth = 6;
+    private const int ExcessBlockTempoPenaltyPerPoint = 10;
 
     private readonly CombatActionScorer _scorer;
 
@@ -20,7 +21,9 @@ internal sealed class CombatTurnLinePlanner
     {
         List<PlannableAction> actions = context.LegalActions
             .Select(action => BuildPlannableAction(context, action))
-            .Where(static action => !action.IsEndTurn && !action.IsZeroEnergyXCost)
+            .Where(action => !action.IsEndTurn &&
+                             !action.IsZeroEnergyXCost &&
+                             !IsRedundantBlockOnlyAtEnergy(context, action, context.Energy, totalBlockGained: 0, damagePreventedByKills: 0, damagePreventedByWeak: 0))
             .ToList();
         if (actions.Count == 0)
         {
@@ -47,7 +50,7 @@ internal sealed class CombatTurnLinePlanner
 
                 foreach (PlannableAction candidate in actions)
                 {
-                    if (!node.CanApply(candidate))
+                    if (!node.CanApply(context, candidate))
                     {
                         continue;
                     }
@@ -98,6 +101,7 @@ internal sealed class CombatTurnLinePlanner
         int selfTemporaryStrength = card.GetSelfTemporaryStrengthAmount();
         int selfDexterity = card.GetSelfDexterityAmount();
         int selfTemporaryDexterity = card.GetSelfTemporaryDexterityAmount();
+        bool isBlockOnlyDefense = IsBlockOnlyDefense(card);
         bool isHighVariance = cardsDrawn > 0;
         bool isOffensivePotion = IsOffensivePotion(action);
         bool appliesVulnerable = vulnerable > 0;
@@ -136,6 +140,7 @@ internal sealed class CombatTurnLinePlanner
             IsSetup = immediateScore.Category is CombatActionCategory.PowerSetup or CombatActionCategory.Utility || buildRole == CombatBuildRole.Setup,
             IsEngineSetup = isEngineSetup,
             IsEnginePayoff = isEnginePayoff,
+            IsBlockOnlyDefense = isBlockOnlyDefense,
             BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
         };
@@ -209,6 +214,61 @@ internal sealed class CombatTurnLinePlanner
             : (action.EnergyCost ?? 0) <= energyRemaining;
     }
 
+    private static bool IsRedundantBlockOnlyAtEnergy(
+        DeterministicCombatContext context,
+        PlannableAction action,
+        int energyRemaining,
+        int totalBlockGained,
+        int damagePreventedByKills,
+        int damagePreventedByWeak)
+    {
+        if (context.HasBlockRetention || !action.IsBlockOnlyDefense || !IsAffordableActionAtEnergy(action, energyRemaining))
+        {
+            return false;
+        }
+
+        int incomingDamage = Math.Max(0, context.IncomingDamage - damagePreventedByKills - damagePreventedByWeak);
+        int uncoveredDamage = Math.Max(0, incomingDamage - context.CurrentBlock - totalBlockGained);
+        return uncoveredDamage <= 0;
+    }
+
+    private static bool IsRedundantBlockOnlyOptionAtEnergy(
+        DeterministicCombatContext context,
+        AiLegalActionOption action,
+        int energyRemaining,
+        int totalBlockGained,
+        int damagePreventedByKills,
+        int damagePreventedByWeak)
+    {
+        ResolvedCardView? card = ResolveCard(context, action);
+        if (context.HasBlockRetention || !IsBlockOnlyDefense(card) || !IsAffordableAtEnergy(context, action, energyRemaining))
+        {
+            return false;
+        }
+
+        int incomingDamage = Math.Max(0, context.IncomingDamage - damagePreventedByKills - damagePreventedByWeak);
+        int uncoveredDamage = Math.Max(0, incomingDamage - context.CurrentBlock - totalBlockGained);
+        return uncoveredDamage <= 0;
+    }
+
+
+    private static bool IsAffordableActionAtEnergy(PlannableAction action, int energyRemaining)
+    {
+        return action.IsXCost ? energyRemaining > 0 : action.EnergyCost <= energyRemaining;
+    }
+
+    private static bool IsBlockOnlyDefense(ResolvedCardView? card)
+    {
+        return card.GetEstimatedBlock() > 0 &&
+               card.GetEstimatedDamage() <= 0 &&
+               card.GetCardsDrawn() <= 0 &&
+               card.GetEnergyGain() <= 0 &&
+               card.GetEnemyWeakAmount() <= 0 &&
+               card.GetEnemyVulnerableAmount() <= 0 &&
+               card.GetSelfStrengthAmount() <= 0 &&
+               card.GetSelfDexterityAmount() <= 0;
+    }
+
     private sealed class PlannableAction
     {
         public required AiLegalActionOption Action { get; init; }
@@ -258,6 +318,8 @@ internal sealed class CombatTurnLinePlanner
         public bool IsEngineSetup { get; init; }
 
         public bool IsEnginePayoff { get; init; }
+
+        public bool IsBlockOnlyDefense { get; init; }
 
         public CombatBuildRole BuildRole { get; init; }
     }
@@ -329,7 +391,7 @@ internal sealed class CombatTurnLinePlanner
 
         public bool StopExpanding { get; private set; }
 
-        public bool CanApply(PlannableAction action)
+        public bool CanApply(DeterministicCombatContext context, PlannableAction action)
         {
             if (_consumedKeys.Contains(action.ConsumptionKey))
             {
@@ -347,6 +409,11 @@ internal sealed class CombatTurnLinePlanner
             }
 
             if (action.IsZeroEnergyXCost)
+            {
+                return false;
+            }
+
+            if (IsRedundantBlockOnlyAtEnergy(context, action, EnergyRemaining, TotalBlockGained, DamagePreventedByKills, DamagePreventedByWeak))
             {
                 return false;
             }
@@ -373,7 +440,14 @@ internal sealed class CombatTurnLinePlanner
             int effectiveBlock = action.Block + next.DexterityGained + next.TemporaryDexterityGained;
             if (effectiveBlock > 0)
             {
+                int incomingBeforeBlock = Math.Max(0, context.IncomingDamage - DamagePreventedByKills - DamagePreventedByWeak);
+                int uncoveredBeforeBlock = Math.Max(0, incomingBeforeBlock - context.CurrentBlock - TotalBlockGained);
+                int excessBlock = Math.Max(0, effectiveBlock - uncoveredBeforeBlock);
                 next.TotalBlockGained += effectiveBlock;
+                if (!context.HasBlockRetention && excessBlock > 0)
+                {
+                    next.SetupScore -= excessBlock * ExcessBlockTempoPenaltyPerPoint;
+                }
             }
 
             if (!string.IsNullOrEmpty(action.Action.TargetId))
@@ -516,7 +590,8 @@ internal sealed class CombatTurnLinePlanner
                 if (string.IsNullOrEmpty(action.ActionId) ||
                     node._consumedKeys.Contains(BuildConsumptionKey(action)) ||
                     string.Equals(action.ActionType, AiTeammateActionKind.EndTurn.ToString(), StringComparison.Ordinal) ||
-                    !IsAffordableAtEnergy(context, action, node.EnergyRemaining))
+                    !IsAffordableAtEnergy(context, action, node.EnergyRemaining) ||
+                    IsRedundantBlockOnlyOptionAtEnergy(context, action, node.EnergyRemaining, node.TotalBlockGained, node.DamagePreventedByKills, node.DamagePreventedByWeak))
                 {
                     return false;
                 }
@@ -565,7 +640,8 @@ internal sealed class CombatTurnLinePlanner
             int remainingAffordableActions = actions.Count(action =>
                 !_consumedKeys.Contains(action.ConsumptionKey) &&
                 !action.IsEndTurn &&
-                (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
+                IsAffordableActionAtEnergy(action, EnergyRemaining) &&
+                !IsRedundantBlockOnlyAtEnergy(context, action, EnergyRemaining, TotalBlockGained, DamagePreventedByKills, DamagePreventedByWeak));
 
             int score = BaseScore;
             score += risk.ApplySurvivalWeight(preventedByBlock * risk.PreventedDamageValuePerPoint);

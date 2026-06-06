@@ -75,3 +75,10 @@
 - Decision: classify Defect orb-fill cards as engine setup only for orb builds (`lightning`, `frost`, `dark_orb`, `creative_ai`), and classify Regent star-building cards as engine setup for Regent builds.
 - Reasoning: orb and star decks need to build their resource engine before spending payoff cards. Claw should not be forced into orb setup just because it is Defect.
 - Verification: in combat line logs, orb/star setup cards should appear before engine payoff cards when they are affordable and survival/lethal does not override it.
+
+## Block Discipline
+
+- Patch points: `CombatActionScorer.Score` and `CombatTurnLinePlanner`.
+- Decision: pure block cards are treated as redundant once incoming damage is already covered, unless the actor can retain block.
+- Reasoning: playing extra block after full coverage wastes energy and actions that could be used for damage, scaling, or build setup.
+- Verification: with 5 incoming damage and enough current/planned block already available, the bot should stop playing additional pure block cards and prefer useful damage/setup or end turn.
