@@ -19,7 +19,7 @@ internal static class CombatBuildRoleEvaluator
         }
 
         string buildId = profile.BuildId;
-        if (IsEngineSetup(context, card))
+        if (IsNecrobinderEarlySoulCard(context, card) || IsEngineSetup(context, card))
         {
             return CombatBuildRole.Setup;
         }
@@ -111,15 +111,44 @@ internal static class CombatBuildRoleEvaluator
 
     public static bool IsNecrobinderFreeSoulDraw(DeterministicCombatContext context, ResolvedCardView? card)
     {
-        if (card == null || context.ActiveBuild?.Profile.CharacterId != "necrobinder")
+        return IsNecrobinderEarlySoulCard(context, card) && card!.GetCardsDrawn() >= 1;
+    }
+
+    public static bool IsNecrobinderEarlySoulCard(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        if (card == null)
         {
             return false;
         }
 
-        return card.EffectiveCost <= 0 &&
-               card.GetCardsDrawn() >= 1 &&
-               (HasToken(card, "SOUL", "BORROWED", "HAUNT", "CAPTURE", "RIGHTHAND") ||
-                context.ActiveBuild.Profile.BuildId is "soul" or "osty" or "doom" or "reaper");
+        if (context.ActiveBuild?.Profile.CharacterId != "necrobinder")
+        {
+            string characterId = context.CombatConfig.CharacterId;
+            if (!string.Equals(characterId, "necrobinder", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        if (card.EffectiveCost > 0)
+        {
+            return false;
+        }
+
+        bool isKnownSoulEngine = HasToken(
+            card,
+            "SOUL",
+            "BORROWED",
+            "RIGHTHAND",
+            "RIGHTHANDHAND",
+            "HAUNT",
+            "CAPTURE",
+            "SPIRIT",
+            "DIRGE",
+            "INVOKE");
+        bool hasUsefulTempo = card.GetCardsDrawn() > 0 || card.GetEnergyGain() > 0 || card.Exhaust;
+        bool activeNecroBuild = context.ActiveBuild?.Profile.BuildId is "soul" or "osty" or "doom" or "reaper";
+        return isKnownSoulEngine || (activeNecroBuild && hasUsefulTempo);
     }
 
     public static bool IsPriorityDrawBlockCard(ResolvedCardView? card)

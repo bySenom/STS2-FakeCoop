@@ -95,10 +95,11 @@
 ## Necrobinder Early Engine Priority
 
 - Patch points: `AiBuildArchetypeCatalog`, `AiTeammateDummyController.DiscoverCombatActions`, `CombatBuildRoleEvaluator`, `CombatActionScorer.Score`, and `CombatTurnLinePlanner`.
-- Decision: treat `Bodyguard` as Osty support/setup, and give zero-cost Necrobinder soul/draw cards early-turn priority.
+- Decision: treat `Bodyguard` as Osty support/setup, and give known zero-cost Necrobinder soul-engine cards first-action priority.
 - Reasoning: Osty decks need protective setup online before spending turns on weak attacks. Soul/draw cards are tempo-negative if used after energy is already gone, so they should fire early while drawn cards can still matter.
 - Target policy: `TargetType.Osty` cards enumerate living allied creatures first instead of falling through to a null target only.
-- Verification: with Osty/Soul evidence, `Bodyguard` and zero-cost soul draw should outrank starter attacks unless survival/lethal gives a better line.
+- Build-lock policy: early soul priority is based on Necrobinder character identity and known soul tokens, not only on the currently locked active build.
+- Verification: with a Necrobinder hand containing zero-cost soul-engine cards, those cards should outrank starter attacks unless survival/lethal gives a better line.
 
 ## Block Discipline
 

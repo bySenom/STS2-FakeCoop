@@ -342,9 +342,18 @@ internal sealed class CombatActionScorer
                 ? cardsDrawn * resource.DrawValueWhenPlayable
                 : -cardsDrawn * resource.DrawPenaltyWhenNotPlayable;
 
-            if (CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card))
+            if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
             {
-                score += hasSpendableFollowUp ? 36 : 18;
+                score += hasSpendableFollowUp ? 80 : 52;
+            }
+        }
+
+        if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
+        {
+            score += 64;
+            if (context.Energy > 0)
+            {
+                score += 24;
             }
         }
 
@@ -557,6 +566,22 @@ internal sealed class CombatActionScorer
 
     private static int ScoreBuildCombatFit(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
     {
+        if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
+        {
+            int earlySoulScore = 92;
+            if (context.Energy > 0)
+            {
+                earlySoulScore += 28;
+            }
+
+            if (HasUnplayedAffordableNonSoulAction(context, action))
+            {
+                earlySoulScore += 24;
+            }
+
+            return earlySoulScore;
+        }
+
         AiBuildProfileMatch? active = context.ActiveBuild;
         if (active == null || active.EvidenceCards <= 0)
         {
@@ -714,7 +739,8 @@ internal sealed class CombatActionScorer
 
     private static int ScoreNecrobinderFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
     {
-        if (context.ActiveBuild?.Profile.CharacterId != "necrobinder")
+        if (!string.Equals(context.CombatConfig.CharacterId, "necrobinder", StringComparison.OrdinalIgnoreCase) &&
+            context.ActiveBuild?.Profile.CharacterId != "necrobinder")
         {
             return 0;
         }
@@ -724,17 +750,21 @@ internal sealed class CombatActionScorer
         if (damage >= 12 && (card.Targeting == TargetType.Osty || HasCardToken(card, "OSTY", "SOUL", "DEATH", "UNLEASH", "REAPER", "SCYTHE")))
         {
             score += Math.Min(damage, 40) * 4;
-            score += context.ActiveBuild.IsLocked ? 24 : 14;
+            score += context.ActiveBuild?.IsLocked == true ? 24 : 14;
         }
 
         if (CombatBuildRoleEvaluator.IsOstyGuardCard(card))
         {
-            score += context.ActiveBuild.IsLocked ? 34 : 22;
+            score += context.ActiveBuild?.IsLocked == true ? 34 : 22;
         }
 
-        if (CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card))
+        if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
         {
-            score += 26;
+            score += 76;
+            if (context.Energy > 0)
+            {
+                score += 28;
+            }
         }
 
         if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
@@ -833,6 +863,26 @@ internal sealed class CombatActionScorer
 
             ResolvedCardView? card = ResolveCard(context, candidate);
             if (CombatBuildRoleEvaluator.IsEngineSetup(context, card))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasUnplayedAffordableNonSoulAction(DeterministicCombatContext context, AiLegalActionOption currentAction)
+    {
+        foreach (AiLegalActionOption candidate in context.LegalActions)
+        {
+            if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) ||
+                !IsAffordableAtEnergy(context, candidate, context.Energy))
+            {
+                continue;
+            }
+
+            ResolvedCardView? card = ResolveCard(context, candidate);
+            if (card != null && !CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
             {
                 return true;
             }

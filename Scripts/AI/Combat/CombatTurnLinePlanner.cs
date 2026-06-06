@@ -115,6 +115,7 @@ internal sealed class CombatTurnLinePlanner
         bool isCoreBuildCard = CombatBuildRoleEvaluator.IsCoreBuildCard(context, card);
         bool isCoreBuildPower = CombatBuildRoleEvaluator.IsCoreBuildPower(context, card);
         bool isNecrobinderFreeSoulDraw = CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card);
+        bool isNecrobinderEarlySoulCard = CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card);
         bool isPriorityDrawBlockCard = CombatBuildRoleEvaluator.IsPriorityDrawBlockCard(card);
         bool isOstyGuardCard = CombatBuildRoleEvaluator.IsOstyGuardCard(card);
 
@@ -154,6 +155,7 @@ internal sealed class CombatTurnLinePlanner
             IsCoreBuildCard = isCoreBuildCard,
             IsCoreBuildPower = isCoreBuildPower,
             IsNecrobinderFreeSoulDraw = isNecrobinderFreeSoulDraw,
+            IsNecrobinderEarlySoulCard = isNecrobinderEarlySoulCard,
             IsPriorityDrawBlockCard = isPriorityDrawBlockCard,
             IsOstyGuardCard = isOstyGuardCard,
             IsBlockOnlyDefense = isBlockOnlyDefense,
@@ -366,6 +368,8 @@ internal sealed class CombatTurnLinePlanner
         public bool IsCoreBuildPower { get; init; }
 
         public bool IsNecrobinderFreeSoulDraw { get; init; }
+
+        public bool IsNecrobinderEarlySoulCard { get; init; }
 
         public bool IsPriorityDrawBlockCard { get; init; }
 
@@ -605,9 +609,9 @@ internal sealed class CombatTurnLinePlanner
                     next.SetupScore -= action.CardsDrawn * resource.SetupDrawPenaltyWhenNotPlayable;
                 }
 
-                if (action.IsNecrobinderFreeSoulDraw)
+                if (action.IsNecrobinderEarlySoulCard)
                 {
-                    next.SetupScore += ActionIds.Count <= 1 ? 28 : 8;
+                    next.SetupScore += ActionIds.Count <= 1 ? 90 : 18;
                 }
 
                 if (action.IsPriorityDrawBlockCard)
@@ -627,6 +631,18 @@ internal sealed class CombatTurnLinePlanner
 
         private int ScoreBuildRotation(DeterministicCombatContext context, PlannableAction action)
         {
+            if (action.IsNecrobinderEarlySoulCard)
+            {
+                bool soulIsFirstAction = ActionIds.Count <= 1;
+                int soulScore = soulIsFirstAction ? 140 : 24;
+                if (EnergyRemaining > 0)
+                {
+                    soulScore += soulIsFirstAction ? 36 : 8;
+                }
+
+                return soulScore;
+            }
+
             if (context.ActiveBuild == null || action.BuildRole == CombatBuildRole.None)
             {
                 return 0;

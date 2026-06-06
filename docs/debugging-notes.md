@@ -110,6 +110,7 @@
 - Expected result: `Bodyguard` is treated as Osty setup/support and should beat low-impact attacks when affordable.
 - Check logs for `Play ... ->` on an Osty/ally target. `TargetType.Osty` cards should not be reduced to only a `none` target.
 - Expected result: zero-cost Necrobinder draw/soul cards should be played early enough that the drawn cards can still be used.
+- Expected result: known zero-cost Necrobinder soul-engine cards should receive first-action priority even before an active build profile is locked.
 - Test an Osty damage card with text like `Osty deals 24 damage`; logs should show a `damage=...` and/or `future=...` score high enough to beat starter `Strike`.
 - For Ironclad draw-block cards such as `Shrug It Off`, expected result is similar: play before the end of the turn when draw can still become a playable action.
 
