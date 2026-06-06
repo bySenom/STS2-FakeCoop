@@ -23,6 +23,7 @@ internal sealed partial class AiTeammateDummyController
     private static readonly TimeSpan QueueSettleTimeout = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan PostSettleGraceInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan MaxInitialCombatDecisionStagger = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan InitialCombatHandWaitTimeout = TimeSpan.FromSeconds(2);
 
     private DateTime _nextDecisionAtUtc = DateTime.MinValue;
     private bool _isExecutingAction;
@@ -32,6 +33,9 @@ internal sealed partial class AiTeammateDummyController
     private string? _lastDeduplicationKey;
     private int _lastCompletedEndTurnRound = -1;
     private int _lastCombatRoundWithInitialStagger = -1;
+    private int _combatRoundWithObservedHand = -1;
+    private int _combatRoundWaitingForInitialHand = -1;
+    private DateTime _combatInitialHandWaitStartedAtUtc = DateTime.MinValue;
     private PendingIssuedActionSettlement? _pendingIssuedActionSettlement;
 
     public AiTeammateDummyController(int slotIndex, ulong playerId, CharacterModel character)
@@ -184,10 +188,20 @@ internal sealed partial class AiTeammateDummyController
 
     private static bool IsCombatDecisionWindow(Player player)
     {
-        return MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsInProgress &&
-               MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsPartOfPlayerTurn(player) &&
+        return IsCombatPlayerActionPhase(player) &&
                player.Creature.CombatState?.CurrentSide == player.Creature.Side &&
                !MegaCrit.Sts2.Core.Combat.CombatManager.Instance.IsPlayerReadyToEndTurn(player);
+    }
+
+    private static bool IsCombatPlayerActionPhase(Player player)
+    {
+        MegaCrit.Sts2.Core.Combat.CombatManager combatManager = MegaCrit.Sts2.Core.Combat.CombatManager.Instance;
+        return combatManager.IsInProgress &&
+               !combatManager.IsPaused &&
+               !combatManager.IsEnemyTurnStarted &&
+               !combatManager.EndingPlayerTurnPhaseOne &&
+               !combatManager.EndingPlayerTurnPhaseTwo &&
+               !combatManager.IsExecutingCardOrPotionEffect(player);
     }
 
     private List<AiTeammateAvailableAction> BuildDecisionActions(IReadOnlyList<AiTeammateAvailableAction> actions)
@@ -403,6 +417,9 @@ internal sealed partial class AiTeammateDummyController
         {
             _lastCompletedEndTurnRound = -1;
             _lastCombatRoundWithInitialStagger = -1;
+            _combatRoundWithObservedHand = -1;
+            _combatRoundWaitingForInitialHand = -1;
+            _combatInitialHandWaitStartedAtUtc = DateTime.MinValue;
             return;
         }
 

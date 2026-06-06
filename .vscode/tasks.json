@@ -20,6 +20,20 @@
                 "panel": "shared",
                 "clear": true
             }
+        },
+        {
+            "label": "Open opencode in this repo",
+            "type": "shell",
+            "command": "opencode",
+            "args": [
+                "${workspaceFolder}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
         }
     ]
 }

@@ -34,6 +34,22 @@ internal static class AiTeammatePlatformUtilGetPlayerNamePatch
     }
 }
 
+[HarmonyPatch(typeof(PlatformUtil), "GetPlayerNameRaw")]
+internal static class AiTeammatePlatformUtilGetPlayerNameRawPatch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(PlatformType platformType, ulong playerId, ref string __result)
+    {
+        if (!AiTeammateSessionRegistry.TryGetDisplayName(playerId, out string displayName))
+        {
+            return true;
+        }
+
+        __result = displayName;
+        return false;
+    }
+}
+
 [HarmonyPatch(typeof(StartRunLobby), "BeginRunForAllPlayers")]
 internal static class AiTeammateStartRunLobbyBeginRunPatch
 {

@@ -26,9 +26,15 @@ internal sealed partial class AiTeammateDummyController
     private IReadOnlyList<AiTeammateAvailableAction> DiscoverCombatActions(Player player)
     {
         List<AiTeammateAvailableAction> actions = [];
-        Log.Debug($"[AITeammate] DiscoverCombatActions player={player.NetId} roomCount={player.RunState.CurrentRoomCount} currentRoom={player.RunState.CurrentRoom?.GetType().Name ?? "null"} inProgress={CombatManager.Instance.IsInProgress} playerTurn={CombatManager.Instance.IsPartOfPlayerTurn(player)}");
+        Log.Debug($"[AITeammate] DiscoverCombatActions player={player.NetId} roomCount={player.RunState.CurrentRoomCount} currentRoom={player.RunState.CurrentRoom?.GetType().Name ?? "null"} inProgress={CombatManager.Instance.IsInProgress} playerActionsDisabled={CombatManager.Instance.PlayerActionsDisabled} playerActionPhase={IsCombatPlayerActionPhase(player)}");
 
-        foreach (CardModel card in PileType.Hand.GetPile(player).Cards)
+        List<CardModel> handCards = PileType.Hand.GetPile(player).Cards.ToList();
+        if (!IsInitialCombatHandReady(player, handCards.Count))
+        {
+            return actions;
+        }
+
+        foreach (CardModel card in handCards)
         {
             UnplayableReason reason;
             MegaCrit.Sts2.Core.Models.AbstractModel? preventer;
@@ -40,12 +46,13 @@ internal sealed partial class AiTeammateDummyController
             bool addedAction = false;
             foreach (Creature? target in GetOrderedTargets(card.TargetType, player))
             {
-                if (target == null || IsPlayableTarget(card, target, player))
+                if (target != null && !IsPlayableTarget(card, target, player))
                 {
-                    AddPlayCardAction(actions, card, target);
-                    addedAction = true;
-                    break;
+                    continue;
                 }
+
+                AddPlayCardAction(actions, card, target);
+                addedAction = true;
             }
 
             if (!addedAction)
@@ -114,6 +121,50 @@ internal sealed partial class AiTeammateDummyController
             }));
 
         return actions;
+    }
+
+    private bool IsInitialCombatHandReady(Player player, int handCount)
+    {
+        int roundNumber = player.Creature.CombatState?.RoundNumber ?? -1;
+        if (roundNumber < 0)
+        {
+            return true;
+        }
+
+        if (handCount > 0)
+        {
+            if (_combatRoundWithObservedHand != roundNumber)
+            {
+                Log.Info($"[AITeammate] Player={PlayerId} observed initial combat hand round={roundNumber} handCount={handCount}");
+            }
+
+            _combatRoundWithObservedHand = roundNumber;
+            _combatRoundWaitingForInitialHand = -1;
+            _combatInitialHandWaitStartedAtUtc = DateTime.MinValue;
+            return true;
+        }
+
+        if (_combatRoundWithObservedHand == roundNumber)
+        {
+            return true;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        if (_combatRoundWaitingForInitialHand != roundNumber)
+        {
+            _combatRoundWaitingForInitialHand = roundNumber;
+            _combatInitialHandWaitStartedAtUtc = now;
+            Log.Info($"[AITeammate] Player={PlayerId} waiting for initial combat hand round={roundNumber}");
+        }
+
+        if (now - _combatInitialHandWaitStartedAtUtc < InitialCombatHandWaitTimeout)
+        {
+            return false;
+        }
+
+        Log.Warn($"[AITeammate] Player={PlayerId} timed out waiting for initial combat hand round={roundNumber}; allowing empty-hand actions.");
+        _combatRoundWithObservedHand = roundNumber;
+        return true;
     }
 
     private static IEnumerable<Creature?> GetOrderedTargets(TargetType targetType, Player player)
