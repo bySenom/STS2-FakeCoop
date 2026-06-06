@@ -69,6 +69,8 @@
 - Press `F4` again to disable host auto-mode.
 - If the reward window does not open while auto-mode is enabled, confirm logs show `Deterministically resolving reward offer`, `GoldReward`, and either `Deterministic card reward picked` or `Deterministic card reward skipped`.
 - The action queue wait should not spam `InvalidOperationException` when the front queued action is still `Executing`.
+- After an Act 1/Act 2 boss is defeated in auto-mode, rewards should resolve and logs should show `[AITeammate][AutoMode] Auto-readying host for act transition`.
+- Expected result: the run proceeds to the next act after AI teammates are auto-readied.
 
 ## Build-Aware Combat Rotation Check
 

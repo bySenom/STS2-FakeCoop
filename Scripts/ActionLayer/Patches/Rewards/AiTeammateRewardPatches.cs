@@ -5,6 +5,7 @@ using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.GameActions;
 using MegaCrit.Sts2.Core.Logging;
+using MegaCrit.Sts2.Core.Map;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Rewards;
 using MegaCrit.Sts2.Core.Rooms;
@@ -61,6 +62,7 @@ internal static class AiTeammateRewardPatches
             Log.Info($"[AITeammate] Starting room-end AI reward fanout room={room.GetType().Name} roomCount={player.RunState.CurrentRoomCount} aiCount={aiRewardTasks.Length}");
             await AwaitHostRoomEndRewardsAsync(originalTask, player, room);
             await Task.WhenAll(aiRewardTasks);
+            AutoReadyHostForActChangeIfNeeded(player, room);
             Log.Info($"[AITeammate] Finished room-end AI reward fanout room={room.GetType().Name} roomCount={player.RunState.CurrentRoomCount} currentRoom={player.RunState.CurrentRoom?.GetType().Name ?? "null"}");
         }
 
@@ -96,6 +98,32 @@ internal static class AiTeammateRewardPatches
             }
 
             return new RewardsSet(player).WithRewardsFromRoom(room);
+        }
+
+        private static void AutoReadyHostForActChangeIfNeeded(Player player, AbstractRoom room)
+        {
+            if (!AiTeammateHostAutoMode.IsAutoControlled(player) ||
+                !IsBossRoomEnd(player, room) ||
+                player.RunState.CurrentActIndex >= player.RunState.Acts.Count - 1)
+            {
+                return;
+            }
+
+            ActChangeSynchronizer? actChangeSynchronizer = RunManager.Instance?.ActChangeSynchronizer;
+            if (actChangeSynchronizer == null)
+            {
+                Log.Warn("[AITeammate][AutoMode] Could not auto-ready host for act transition because ActChangeSynchronizer was null.");
+                return;
+            }
+
+            Log.Info($"[AITeammate][AutoMode] Auto-readying host for act transition player={player.NetId} act={player.RunState.CurrentActIndex + 1} room={room.GetType().Name}");
+            actChangeSynchronizer.SetLocalPlayerReady();
+        }
+
+        private static bool IsBossRoomEnd(Player player, AbstractRoom room)
+        {
+            return player.RunState.CurrentMapPoint?.PointType == MapPointType.Boss ||
+                   room.GetType().Name.Contains("Boss", System.StringComparison.OrdinalIgnoreCase);
         }
     }
 
