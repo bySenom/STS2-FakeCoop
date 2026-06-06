@@ -37,6 +37,7 @@
 - Trigger a treasure room with shared relic choices.
 - Expected result: logs show `Treasure relic team evaluation` and `Treasure relic coordinated assignment`; AI teammates should avoid taking the same relic index when enough relics are available.
 - With host auto-mode enabled, the host is included in the coordinated treasure assignment.
+- Expected result: after the host auto-picks a treasure relic, the relic selection UI should close and the run should continue; the host uses the local relic-pick path.
 
 ## Rest Site Upgrade Check
 

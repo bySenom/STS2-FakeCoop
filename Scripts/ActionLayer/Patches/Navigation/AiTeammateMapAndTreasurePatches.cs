@@ -82,7 +82,14 @@ internal static class AiTeammateMapAndTreasurePatches
                     : 0;
                 RelicModel relic = currentRelics[Math.Clamp(chosenRelicIndex, 0, currentRelics.Count - 1)];
                 Log.Info($"[AITeammate] Auto-voting coordinated treasure relic player={player.NetId} relicIndex={chosenRelicIndex} relic={relic.Id.Entry}");
-                __instance.OnPicked(player, chosenRelicIndex);
+                if (player.NetId == session.HostPlayerId && AiTeammateHostAutoMode.IsAutoControlled(player))
+                {
+                    __instance.PickRelicLocally(chosenRelicIndex);
+                }
+                else
+                {
+                    __instance.OnPicked(player, chosenRelicIndex);
+                }
             }
         }
 
