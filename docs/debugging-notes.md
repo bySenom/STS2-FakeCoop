@@ -86,9 +86,17 @@
 ## Regent and Defect Engine Rotation Check
 
 - Defect: test `lightning`, `frost`, or `dark_orb` evidence with cards like `Zap`, `Ball Lightning`, `Glacier`, `Coolheaded`, `Darkness`, `Capacitor`, or `Storm`.
-- Expected result: the line planner prefers filling/building orb setup before `Dualcast`, `Multi-Cast`, `Recursion`, or other orb payoff when no emergency overrides it.
+- Expected result: the line planner prefers filling/building orb setup before starter `Strike`, `Dualcast`, `Multi-Cast`, `Recursion`, or other orb payoff when no emergency overrides it.
 - Regent: test star builds with `Guiding Star`, `Falling Star`, `Stardust`, `Seven Stars`, `Glow`, `Convergence`, or `Venerate`.
 - Expected result: star setup is played before payoff cards such as `Gamma Blast`, `Photon Cut`, `Meteor Shower`, `Big Bang`, or `Bombardment` when affordable.
+
+## Necrobinder Early Engine Check
+
+- Test Osty/Soul/Doom/Reaper combat hands with `Bodyguard` and zero-cost soul/draw cards.
+- Expected result: `Bodyguard` is treated as Osty setup/support and should beat low-impact attacks when affordable.
+- Check logs for `Play ... ->` on an Osty/ally target. `TargetType.Osty` cards should not be reduced to only a `none` target.
+- Expected result: zero-cost Necrobinder draw/soul cards should be played early enough that the drawn cards can still be used.
+- For Ironclad draw-block cards such as `Shrug It Off`, expected result is similar: play before the end of the turn when draw can still become a playable action.
 
 ## Block Discipline Check
 
@@ -112,6 +120,7 @@
 - Enter a safe normal combat while holding a potion.
 - Expected result: the bot should not spend the potion just because it is legal; end turn should beat low-value potion actions.
 - Enter an elite/boss or dangerous turn with meaningful incoming damage.
+- Expected result: defensive potions should become eligible again when uncovered damage is severe; offensive potions should be more likely in elite/boss fights or dangerous turns with attack follow-up.
 - Expected result: if a potion is selected, it should appear early in the combat line, before attacks/payoff cards that benefit from it.
 - Check logs for `Combat score ... category=Potion` and `Combat line ... actions=[use_potion_...`.
 

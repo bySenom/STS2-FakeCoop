@@ -24,6 +24,11 @@ internal static class CombatBuildRoleEvaluator
             return CombatBuildRole.Setup;
         }
 
+        if (buildId == "osty" && IsOstyGuardCard(card))
+        {
+            return CombatBuildRole.Setup;
+        }
+
         if (IsDefenseBuild(buildId) && (card.GetEstimatedBlock() > 0 || card.GetEnemyWeakAmount() > 0))
         {
             return CombatBuildRole.Defense;
@@ -89,6 +94,54 @@ internal static class CombatBuildRoleEvaluator
         return IsStarSetupBuild(buildId) && IsStarPayoffCard(card);
     }
 
+    public static bool IsOrbSetupBuild(DeterministicCombatContext context)
+    {
+        return context.ActiveBuild != null && IsOrbSetupBuild(context.ActiveBuild.Profile.BuildId);
+    }
+
+    public static bool IsStarSetupBuild(DeterministicCombatContext context)
+    {
+        return context.ActiveBuild != null && IsStarSetupBuild(context.ActiveBuild.Profile.BuildId);
+    }
+
+    public static bool IsOstyGuardCard(ResolvedCardView? card)
+    {
+        return card != null && HasToken(card, "BODYGUARD", "GUARDIAN", "PROTECT");
+    }
+
+    public static bool IsNecrobinderFreeSoulDraw(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        if (card == null || context.ActiveBuild?.Profile.CharacterId != "necrobinder")
+        {
+            return false;
+        }
+
+        return card.EffectiveCost <= 0 &&
+               card.GetCardsDrawn() >= 1 &&
+               (HasToken(card, "SOUL", "BORROWED", "HAUNT", "CAPTURE", "RIGHTHAND") ||
+                context.ActiveBuild.Profile.BuildId is "soul" or "osty" or "doom" or "reaper");
+    }
+
+    public static bool IsPriorityDrawBlockCard(ResolvedCardView? card)
+    {
+        return card != null &&
+               card.GetCardsDrawn() > 0 &&
+               (card.GetEstimatedBlock() > 0 || card.GetEnergyGain() > 0 || card.EffectiveCost <= 0);
+    }
+
+    public static bool IsWeakStarterStrike(ResolvedCardView? card)
+    {
+        if (card == null)
+        {
+            return false;
+        }
+
+        return card.Rarity == "Basic" &&
+               card.GetEstimatedDamage() > 0 &&
+               HasToken(card, "STRIKE") &&
+               !HasToken(card, "POMMEL", "TWIN", "PERFECTED", "FOCUSED");
+    }
+
     public static bool IsCoreBuildCard(DeterministicCombatContext context, ResolvedCardView? card)
     {
         return card != null &&
@@ -115,8 +168,8 @@ internal static class CombatBuildRoleEvaluator
         {
             "poison" => HasToken(card, "NOXIOUS", "POISON", "BOUNCING"),
             "sly" or "grand_finale" or "claw" => IsCycleCard(card),
-            "frost" or "lightning" or "dark_orb" or "creative_ai" => HasToken(card, "DEFRA", "CAPACITOR", "ECHO", "STORM", "MACHINE") || IsOrbSetupCard(card),
-            "osty" or "soul" or "doom" or "reaper" => HasToken(card, "INVOKE", "BORROWED", "DIRGE", "REANIMATE", "HAUNT", "CAPTURE", "COUNTDOWN", "REAPERFORM"),
+            "frost" or "lightning" or "dark_orb" or "creative_ai" => HasToken(card, "DEFRA", "CAPACITOR", "ECHO", "STORM", "MACHINE", "LOOP", "HEATSINK") || IsOrbSetupCard(card),
+            "osty" or "soul" or "doom" or "reaper" => IsOstyGuardCard(card) || HasToken(card, "INVOKE", "BORROWED", "DIRGE", "REANIMATE", "HAUNT", "CAPTURE", "COUNTDOWN", "REAPERFORM", "SOUL"),
             "forge" or "star_burst" or "void_form" or "bombardment" => HasToken(card, "CONQUEROR", "SEEKING", "VOID") || IsStarSetupCard(card),
             "barricade" or "exhaust" or "bloodletting" => HasToken(card, "BARRICADE", "CORRUPTION", "DARKEMBRACE", "FEELNOPAIN", "RUPTURE"),
             _ => false
@@ -156,23 +209,29 @@ internal static class CombatBuildRoleEvaluator
         return buildId is "forge" or "star_burst" or "void_form" or "bombardment";
     }
 
-    private static bool IsOrbSetupCard(ResolvedCardView card)
+    public static bool IsOrbSetupCard(ResolvedCardView card)
     {
         return HasToken(
             card,
             "ZAP",
             "BALLLIGHTNING",
+            "BALL",
+            "LIGHTNING",
             "COLDSNAP",
+            "COLD",
             "COOLHEADED",
             "GLACIER",
             "DARKNESS",
+            "DARK",
             "CHILL",
             "DOOMANDGLOOM",
             "ELECTRODYNAMICS",
             "STATICDISCHARGE",
             "TEMPEST",
             "STORM",
-            "CAPACITOR");
+            "CAPACITOR",
+            "CHAOS",
+            "RECURSION");
     }
 
     private static bool IsOrbPayoffCard(ResolvedCardView card)

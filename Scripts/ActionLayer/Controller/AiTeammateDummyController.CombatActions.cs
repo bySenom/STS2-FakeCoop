@@ -186,6 +186,11 @@ internal sealed partial class AiTeammateDummyController
             TargetType.AnyEnemy => combatState.HittableEnemies.OrderBy(static creature => creature.CombatId ?? uint.MaxValue).Cast<Creature?>(),
             TargetType.AnyAlly => combatState.PlayerCreatures.Where(static creature => creature.IsAlive).OrderBy(static creature => creature.Player?.NetId ?? 0UL).Cast<Creature?>(),
             TargetType.AnyPlayer => combatState.PlayerCreatures.Where(static creature => creature.IsAlive).OrderBy(static creature => creature.Player?.NetId ?? 0UL).Cast<Creature?>(),
+            TargetType.Osty => combatState.PlayerCreatures
+                .Where(static creature => creature.IsAlive)
+                .OrderBy(creature => ReferenceEquals(creature, player.Creature))
+                .ThenBy(static creature => creature.Player?.NetId ?? 0UL)
+                .Cast<Creature?>(),
             TargetType.Self => new Creature?[] { player.Creature },
             _ => new Creature?[] { null },
         };

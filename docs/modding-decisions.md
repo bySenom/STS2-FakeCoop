@@ -74,9 +74,18 @@
 ## Regent and Defect Engine Rotation
 
 - Patch points: `CombatBuildRoleEvaluator` and `CombatTurnLinePlanner`.
-- Decision: classify Defect orb-fill cards as engine setup only for orb builds (`lightning`, `frost`, `dark_orb`, `creative_ai`), and classify Regent star-building cards as engine setup for Regent builds.
+- Decision: classify Defect orb-fill/cardslot cards as engine setup only for orb builds (`lightning`, `frost`, `dark_orb`, `creative_ai`), and classify Regent star-building cards as engine setup for Regent builds.
 - Reasoning: orb and star decks need to build their resource engine before spending payoff cards. Claw should not be forced into orb setup just because it is Defect.
+- Starter-strike policy: when an affordable orb setup card is in hand, basic `Strike` receives an extra off-engine penalty so it becomes a last resort instead of competing with `Zap`, `Ball Lightning`, `Capacitor`, or similar setup.
 - Verification: in combat line logs, orb/star setup cards should appear before engine payoff cards when they are affordable and survival/lethal does not override it.
+
+## Necrobinder Early Engine Priority
+
+- Patch points: `AiBuildArchetypeCatalog`, `AiTeammateDummyController.DiscoverCombatActions`, `CombatBuildRoleEvaluator`, `CombatActionScorer.Score`, and `CombatTurnLinePlanner`.
+- Decision: treat `Bodyguard` as Osty support/setup, and give zero-cost Necrobinder soul/draw cards early-turn priority.
+- Reasoning: Osty decks need protective setup online before spending turns on weak attacks. Soul/draw cards are tempo-negative if used after energy is already gone, so they should fire early while drawn cards can still matter.
+- Target policy: `TargetType.Osty` cards enumerate living allied creatures first instead of falling through to a null target only.
+- Verification: with Osty/Soul evidence, `Bodyguard` and zero-cost soul draw should outrank starter attacks unless survival/lethal gives a better line.
 
 ## Block Discipline
 
@@ -100,7 +109,7 @@
 - Patch points: `CombatActionScorer.Score` and `CombatTurnLinePlanner`.
 - Decision: combat potions require tactical need before they can compete with cards/end turn, and useful potions receive line-planning priority early in the turn.
 - Reasoning: potions are limited resources. The bot should not spend them in normal fights or at the end of a turn just because they are legal actions.
-- Need policy: grave danger, meaningful incoming damage, elite/boss pressure, or an offensive potion with useful follow-up can justify potion use. Low-value potions are excluded from combat line planning so end turn can win.
+- Need policy: grave danger, severe uncovered damage, elite/boss pressure, or an offensive potion with useful follow-up can justify potion use. Low-value potions are excluded from combat line planning so end turn can win.
 - Verification: in a safe normal fight, held potions should remain unused. In an elite/boss or dangerous turn, a chosen potion should appear early in the planned line before payoff cards.
 
 ## Coop Target Overkill Discipline

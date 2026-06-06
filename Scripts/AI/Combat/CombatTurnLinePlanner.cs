@@ -114,6 +114,9 @@ internal sealed class CombatTurnLinePlanner
         bool isEnginePayoff = CombatBuildRoleEvaluator.IsEnginePayoff(context, card);
         bool isCoreBuildCard = CombatBuildRoleEvaluator.IsCoreBuildCard(context, card);
         bool isCoreBuildPower = CombatBuildRoleEvaluator.IsCoreBuildPower(context, card);
+        bool isNecrobinderFreeSoulDraw = CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card);
+        bool isPriorityDrawBlockCard = CombatBuildRoleEvaluator.IsPriorityDrawBlockCard(card);
+        bool isOstyGuardCard = CombatBuildRoleEvaluator.IsOstyGuardCard(card);
 
         if (isOffensivePotion && vulnerable <= 0)
         {
@@ -150,6 +153,9 @@ internal sealed class CombatTurnLinePlanner
             IsEnginePayoff = isEnginePayoff,
             IsCoreBuildCard = isCoreBuildCard,
             IsCoreBuildPower = isCoreBuildPower,
+            IsNecrobinderFreeSoulDraw = isNecrobinderFreeSoulDraw,
+            IsPriorityDrawBlockCard = isPriorityDrawBlockCard,
+            IsOstyGuardCard = isOstyGuardCard,
             IsBlockOnlyDefense = isBlockOnlyDefense,
             BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
@@ -358,6 +364,12 @@ internal sealed class CombatTurnLinePlanner
         public bool IsCoreBuildCard { get; init; }
 
         public bool IsCoreBuildPower { get; init; }
+
+        public bool IsNecrobinderFreeSoulDraw { get; init; }
+
+        public bool IsPriorityDrawBlockCard { get; init; }
+
+        public bool IsOstyGuardCard { get; init; }
 
         public bool IsBlockOnlyDefense { get; init; }
 
@@ -592,6 +604,16 @@ internal sealed class CombatTurnLinePlanner
                 {
                     next.SetupScore -= action.CardsDrawn * resource.SetupDrawPenaltyWhenNotPlayable;
                 }
+
+                if (action.IsNecrobinderFreeSoulDraw)
+                {
+                    next.SetupScore += ActionIds.Count <= 1 ? 28 : 8;
+                }
+
+                if (action.IsPriorityDrawBlockCard)
+                {
+                    next.SetupScore += ActionIds.Count <= 1 ? 20 : 4;
+                }
             }
 
             if (action.EnergyGain > 0)
@@ -632,9 +654,24 @@ internal sealed class CombatTurnLinePlanner
                         score += isFirstAction ? 18 : 10;
                     }
 
+                    if (action.IsOstyGuardCard)
+                    {
+                        score += isFirstAction ? 26 : 10;
+                    }
+
                     break;
                 case CombatBuildRole.Cycle:
                     score += isFirstAction ? 10 : 4;
+                    if (action.IsNecrobinderFreeSoulDraw)
+                    {
+                        score += isFirstAction ? 28 : 8;
+                    }
+
+                    if (action.IsPriorityDrawBlockCard)
+                    {
+                        score += isFirstAction ? 18 : 4;
+                    }
+
                     break;
                 case CombatBuildRole.Payoff:
                     score += hasSetup ? 18 : -8;

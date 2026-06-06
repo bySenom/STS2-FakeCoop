@@ -151,7 +151,7 @@ internal static class AiBuildArchetypeCatalog
 
         Build("necrobinder", "osty", "Osty", AiBuildTier.S,
             ["Dirge", "Invoke", "Borrowed Time", "Reanimate"],
-            ["Summon", "Sacrifice", "Grave Warden", "Danse Macabre", "Lethality"],
+            ["Bodyguard", "Summon", "Sacrifice", "Grave Warden", "Danse Macabre", "Lethality"],
             ["Osty's Collar"],
             ["Bag of Preparation", "Tungsten Rod", "Orichalcum"],
             ["Runic Dome"]),

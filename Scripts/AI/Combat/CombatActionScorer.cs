@@ -76,7 +76,7 @@ internal sealed class CombatActionScorer
         int selfBuffScore = ScoreSelfBuff(context, action, card);
         int resourceSetupScore = ScoreResourceSetup(context, action, card);
         int killPotentialScore = ScoreKillPotential(context, action, card);
-        int buildCombatFitScore = ScoreBuildCombatFit(context, card);
+        int buildCombatFitScore = ScoreBuildCombatFit(context, action, card);
         int totalScore = risk.ApplyAttackWeight(immediateDamageScore) +
                          risk.ApplyDefenseWeight(immediateDefenseScore) +
                          enemyDebuffScore +
@@ -218,6 +218,16 @@ internal sealed class CombatActionScorer
             {
                 score += risk.FullBlockCoverageBonus;
             }
+
+            if (uncoveredDamage > 0)
+            {
+                score += Math.Min(blockedDamage, 8) * 4;
+            }
+
+            if (uncoveredDamage > 0 && CombatBuildRoleEvaluator.IsPriorityDrawBlockCard(card))
+            {
+                score += 18 + (card.GetCardsDrawn() * 6);
+            }
         }
 
         if (weakPrevention > 0)
@@ -329,6 +339,11 @@ internal sealed class CombatActionScorer
             score += hasSpendableFollowUp
                 ? cardsDrawn * resource.DrawValueWhenPlayable
                 : -cardsDrawn * resource.DrawPenaltyWhenNotPlayable;
+
+            if (CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card))
+            {
+                score += hasSpendableFollowUp ? 36 : 18;
+            }
         }
 
         if (energyGain > 0)
@@ -439,6 +454,9 @@ internal sealed class CombatActionScorer
         bool isOffensivePotion = IsOffensivePotion(action);
         bool isDefensivePotion = IsDefensivePotion(action);
         bool graveDanger = IsGraveDanger(context);
+        int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
+        bool underPressure = uncoveredDamage >= 8 || uncoveredDamage >= Math.Max(6, context.CurrentHp / 5);
+        bool severePressure = uncoveredDamage >= 14 || uncoveredDamage >= Math.Max(8, context.CurrentHp / 3);
         bool canAmplifyAttacks = isOffensivePotion && CountNonPotionAttackActions(context) > 0;
         bool isHighValueTarget = IsHighValuePotionTarget(context, action);
         bool tacticalNeed = HasTacticalPotionNeed(
@@ -459,6 +477,18 @@ internal sealed class CombatActionScorer
         if (graveDanger)
         {
             score += isDefensivePotion ? potionUse.GraveDangerDefensiveBonus : potionUse.GraveDangerOffensiveBonus;
+        }
+        else if (isDefensivePotion && severePressure)
+        {
+            score += context.IsEliteOrBossCombat ? 140 : 185;
+        }
+        else if (isDefensivePotion && underPressure)
+        {
+            score += context.IsEliteOrBossCombat ? 95 : 120;
+        }
+        else if (isOffensivePotion && severePressure && canAmplifyAttacks)
+        {
+            score += context.IsEliteOrBossCombat ? 85 : 55;
         }
 
         if (isOffensivePotion)
@@ -508,7 +538,7 @@ internal sealed class CombatActionScorer
             return true;
         }
 
-        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock) + context.HandEndTurnHpLoss;
+        int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
         bool underPressure = uncoveredDamage >= 8 || uncoveredDamage >= Math.Max(6, context.CurrentHp / 5);
         if (isDefensivePotion && underPressure)
         {
@@ -523,7 +553,7 @@ internal sealed class CombatActionScorer
         return context.IsEliteOrBossCombat && (underPressure || isHighValueTarget);
     }
 
-    private static int ScoreBuildCombatFit(DeterministicCombatContext context, ResolvedCardView card)
+    private static int ScoreBuildCombatFit(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
     {
         AiBuildProfileMatch? active = context.ActiveBuild;
         if (active == null || active.EvidenceCards <= 0)
@@ -558,7 +588,62 @@ internal sealed class CombatActionScorer
             score += context.IsEliteOrBossCombat ? 8 : 4;
         }
 
+        if (CombatBuildRoleEvaluator.IsEngineSetup(context, card))
+        {
+            score += active.IsLocked ? 34 : 24;
+            if (context.IsEliteOrBossCombat)
+            {
+                score += 8;
+            }
+        }
+
+        if (CombatBuildRoleEvaluator.IsOstyGuardCard(card) && active.Profile.BuildId == "osty")
+        {
+            score += active.IsLocked ? 34 : 24;
+            if (context.IncomingDamage > 0)
+            {
+                score += 10;
+            }
+        }
+
+        if (CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card))
+        {
+            score += active.IsLocked ? 32 : 22;
+        }
+
+        if (CombatBuildRoleEvaluator.IsPriorityDrawBlockCard(card) && EstimateUncoveredEndTurnDamage(context) > 0)
+        {
+            score += 18;
+        }
+
+        if (CombatBuildRoleEvaluator.IsOrbSetupBuild(context) &&
+            CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
+            HasUnplayedAffordableEngineSetup(context, action))
+        {
+            score -= active.IsLocked ? 42 : 30;
+        }
+
         return score;
+    }
+
+    private static bool HasUnplayedAffordableEngineSetup(DeterministicCombatContext context, AiLegalActionOption currentAction)
+    {
+        foreach (AiLegalActionOption candidate in context.LegalActions)
+        {
+            if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) ||
+                !IsAffordableAtEnergy(context, candidate, context.Energy))
+            {
+                continue;
+            }
+
+            ResolvedCardView? card = ResolveCard(context, candidate);
+            if (CombatBuildRoleEvaluator.IsEngineSetup(context, card))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int ScoreEndTurn(DeterministicCombatContext context)
@@ -739,8 +824,13 @@ internal sealed class CombatActionScorer
 
     private static bool IsGraveDanger(DeterministicCombatContext context)
     {
-        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock) + context.HandEndTurnHpLoss;
+        int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
         return uncoveredDamage >= Math.Max(10, context.CurrentHp / 3) || uncoveredDamage >= context.CurrentHp;
+    }
+
+    private static int EstimateUncoveredEndTurnDamage(DeterministicCombatContext context)
+    {
+        return Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock) + context.HandEndTurnHpLoss;
     }
 
     private static bool IsHighValuePotionTarget(DeterministicCombatContext context, AiLegalActionOption action)
