@@ -94,3 +94,11 @@
 - Reasoning: cards such as `Demon Form`, `Echo Form`, `Barricade`, `Creative AI`, and `Void Form` cost a full turn of energy but stay active for the rest of combat. The AI should not treat them like inefficient expensive cards when they are core to the selected build.
 - Safety policy: this is still score-based. Lethal damage, urgent survival, or immediate lethal opportunities can override the power priority.
 - Verification: with 3 energy and a locked/evidenced build, a playable core power should be chosen before ordinary attacks, cycle, or payoff cards unless an emergency overrides it.
+
+## Combat Potion Discipline
+
+- Patch points: `CombatActionScorer.Score` and `CombatTurnLinePlanner`.
+- Decision: combat potions require tactical need before they can compete with cards/end turn, and useful potions receive line-planning priority early in the turn.
+- Reasoning: potions are limited resources. The bot should not spend them in normal fights or at the end of a turn just because they are legal actions.
+- Need policy: grave danger, meaningful incoming damage, elite/boss pressure, or an offensive potion with useful follow-up can justify potion use. Low-value potions are excluded from combat line planning so end turn can win.
+- Verification: in a safe normal fight, held potions should remain unused. In an elite/boss or dangerous turn, a chosen potion should appear early in the planned line before payoff cards.

@@ -347,6 +347,13 @@ internal sealed class CombatActionScorer
         bool graveDanger = IsGraveDanger(context);
         bool canAmplifyAttacks = isOffensivePotion && CountNonPotionAttackActions(context) > 0;
         bool isHighValueTarget = IsHighValuePotionTarget(context, action);
+        bool tacticalNeed = HasTacticalPotionNeed(
+            context,
+            isOffensivePotion,
+            isDefensivePotion,
+            graveDanger,
+            canAmplifyAttacks,
+            isHighValueTarget);
 
         int score = context.IsEliteOrBossCombat ? potionUse.EliteBossBaseScore : potionUse.NormalFightBaseScore;
 
@@ -372,6 +379,11 @@ internal sealed class CombatActionScorer
             }
         }
 
+        if (!tacticalNeed)
+        {
+            score -= context.IsEliteOrBossCombat ? 70 : 120;
+        }
+
         if (!string.IsNullOrEmpty(action.TargetId) &&
             context.EnemiesById.TryGetValue(action.TargetId, out DeterministicEnemyState? enemy))
         {
@@ -387,6 +399,34 @@ internal sealed class CombatActionScorer
         }
 
         return score;
+    }
+
+    private static bool HasTacticalPotionNeed(
+        DeterministicCombatContext context,
+        bool isOffensivePotion,
+        bool isDefensivePotion,
+        bool graveDanger,
+        bool canAmplifyAttacks,
+        bool isHighValueTarget)
+    {
+        if (graveDanger)
+        {
+            return true;
+        }
+
+        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock) + context.HandEndTurnHpLoss;
+        bool underPressure = uncoveredDamage >= 8 || uncoveredDamage >= Math.Max(6, context.CurrentHp / 5);
+        if (isDefensivePotion && underPressure)
+        {
+            return true;
+        }
+
+        if (isOffensivePotion && canAmplifyAttacks && isHighValueTarget)
+        {
+            return context.IsEliteOrBossCombat || underPressure;
+        }
+
+        return context.IsEliteOrBossCombat && (underPressure || isHighValueTarget);
     }
 
     private static int ScoreBuildCombatFit(DeterministicCombatContext context, ResolvedCardView card)

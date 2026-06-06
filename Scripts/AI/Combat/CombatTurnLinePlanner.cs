@@ -22,6 +22,7 @@ internal sealed class CombatTurnLinePlanner
         List<PlannableAction> actions = context.LegalActions
             .Select(action => BuildPlannableAction(context, action))
             .Where(action => !action.IsEndTurn &&
+                             !(action.IsPotion && action.ImmediateScore.TotalScore <= 0) &&
                              !action.IsZeroEnergyXCost &&
                              !IsRedundantBlockOnlyAtEnergy(context, action, context.Energy, totalBlockGained: 0, damagePreventedByKills: 0, damagePreventedByWeak: 0))
             .ToList();
@@ -103,6 +104,7 @@ internal sealed class CombatTurnLinePlanner
         int selfTemporaryDexterity = card.GetSelfTemporaryDexterityAmount();
         bool isBlockOnlyDefense = IsBlockOnlyDefense(card);
         bool isHighVariance = cardsDrawn > 0;
+        bool isPotion = string.Equals(action.ActionType, AiTeammateActionKind.UsePotion.ToString(), StringComparison.Ordinal);
         bool isOffensivePotion = IsOffensivePotion(action);
         bool appliesVulnerable = vulnerable > 0;
         CombatBuildRole buildRole = CombatBuildRoleEvaluator.Classify(context, card);
@@ -135,6 +137,7 @@ internal sealed class CombatTurnLinePlanner
             SelfTemporaryDexterity = selfTemporaryDexterity,
             IsHighVariance = isHighVariance,
             IsEndTurn = string.Equals(action.ActionType, AiTeammateActionKind.EndTurn.ToString(), StringComparison.Ordinal),
+            IsPotion = isPotion,
             IsOffensivePotion = isOffensivePotion,
             IsXCost = card?.HasXCost == true,
             IsZeroEnergyXCost = card?.HasXCost == true && context.Energy <= 0,
@@ -325,6 +328,8 @@ internal sealed class CombatTurnLinePlanner
 
         public bool IsEndTurn { get; init; }
 
+        public bool IsPotion { get; init; }
+
         public bool IsOffensivePotion { get; init; }
 
         public bool IsXCost { get; init; }
@@ -458,6 +463,7 @@ internal sealed class CombatTurnLinePlanner
             next._consumedKeys.Add(action.ConsumptionKey);
             next.BaseScore += action.ImmediateScore.TotalScore;
             next.BaseScore += next.ScoreBuildRotation(context, action);
+            next.BaseScore += next.ScorePotionTiming(action);
             next.EnergyGenerated += action.EnergyGain;
             next.CardsDrawn += action.CardsDrawn;
 
@@ -613,6 +619,23 @@ internal sealed class CombatTurnLinePlanner
                 isFirstAction)
             {
                 score -= 10;
+            }
+
+            return score;
+        }
+
+        private int ScorePotionTiming(PlannableAction action)
+        {
+            if (!action.IsPotion)
+            {
+                return 0;
+            }
+
+            bool isFirstAction = ActionIds.Count <= 1;
+            int score = isFirstAction ? 32 : -28;
+            if (action.IsOffensivePotion)
+            {
+                score += isFirstAction ? 16 : -16;
             }
 
             return score;

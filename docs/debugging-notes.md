@@ -106,3 +106,11 @@
 - Good checks: Ironclad `Demon Form` in Strength, Defect `Echo Form` in Lightning/Creative AI, Ironclad `Barricade` in Body Slam/Barricade, or Regent `Void Form`.
 - Expected result: the bot plays the affordable core power early, usually first, when there is no lethal/survival emergency.
 - If the bot skips the power, compare enemy incoming damage, lethal opportunity, and combat line scores before changing weights.
+
+## Combat Potion Discipline Check
+
+- Enter a safe normal combat while holding a potion.
+- Expected result: the bot should not spend the potion just because it is legal; end turn should beat low-value potion actions.
+- Enter an elite/boss or dangerous turn with meaningful incoming damage.
+- Expected result: if a potion is selected, it should appear early in the combat line, before attacks/payoff cards that benefit from it.
+- Check logs for `Combat score ... category=Potion` and `Combat line ... actions=[use_potion_...`.
