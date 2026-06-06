@@ -61,3 +61,10 @@
 - Decision: classify active-build cards into setup, payoff, cycle, defense, finisher, or avoid roles, then score lines for setup-before-payoff sequencing.
 - Reasoning: strong decks need to pilot their engine. Strength should set up before multi-hit payoff, cycle decks should draw/energy first, and locked builds should avoid wasting turns on off-build cards unless survival/lethal requires it.
 - Verification: inspect combat line logs and semantic scores; build payoff cards should be delayed behind playable setup/cycle cards when the line planner can afford it.
+
+## Zero-Energy X-Cost Guard
+
+- Patch points: `AiTeammateDummyController.DiscoverCombatActions`, `CombatActionScorer.Score`, and `CombatTurnLinePlanner`.
+- Decision: do not expose X-cost cards as playable actions when the actor has 0 energy, and treat X-cost cards as spending all remaining energy in combat line planning.
+- Reasoning: X-cost cards can appear legal at 0 energy, but playing them then wastes the card. The scorer and planner also need to avoid counting them as free follow-up actions.
+- Verification: enter combat with an X-cost card, spend all energy first, and confirm the bot ends/chooses another action instead of playing the X-cost card at 0.

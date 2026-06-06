@@ -44,6 +44,17 @@ internal sealed class CombatActionScorer
             };
         }
 
+        if (card.HasXCost && context.Energy <= 0)
+        {
+            Log.Debug($"[AITeammate] Semantic score blocked zero-energy X-cost actionId={action.ActionId} card={card.CardId}.");
+            return new CombatActionScore
+            {
+                ActionId = action.ActionId,
+                Category = CombatActionCategory.Utility,
+                TotalScore = -100000
+            };
+        }
+
         int immediateDamageScore = ScoreImmediateDamage(context, action, card);
         int immediateDefenseScore = ScoreImmediateDefense(context, action, card);
         int enemyDebuffScore = ScoreEnemyDebuff(context, action, card);
@@ -57,7 +68,7 @@ internal sealed class CombatActionScorer
                          selfBuffScore +
                          resourceSetupScore +
                          killPotentialScore +
-                         ScoreEnergyEfficiency(context, action) +
+                         ScoreEnergyEfficiency(context, action, card) +
                          buildCombatFitScore;
 
         CombatActionCategory category = Classify(card, immediateDamageScore, immediateDefenseScore, selfBuffScore, resourceSetupScore);
@@ -308,7 +319,7 @@ internal sealed class CombatActionScorer
         AiCombatCoreWeights core = context.CombatConfig.Combat.CoreWeights;
         int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock);
         int score = uncoveredDamage > 0 ? core.UtilityValueWhenThreatened : core.UtilityValueWhenSafe;
-        score += ScoreEnergyEfficiency(context, action);
+        score += ScoreEnergyEfficiency(context, action, null);
         return score;
     }
 
@@ -404,8 +415,13 @@ internal sealed class CombatActionScorer
         return context.LegalActions.Count > 1 ? -resource.EndTurnWhileOtherActionsExistPenalty : 0;
     }
 
-    private static int ScoreEnergyEfficiency(DeterministicCombatContext context, AiLegalActionOption action)
+    private static int ScoreEnergyEfficiency(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView? card)
     {
+        if (card?.HasXCost == true)
+        {
+            return 0;
+        }
+
         if (!action.EnergyCost.HasValue)
         {
             return 0;
@@ -463,6 +479,7 @@ internal sealed class CombatActionScorer
 
     private static int CountAffordableAttackActions(DeterministicCombatContext context, AiLegalActionOption currentAction)
     {
+        int remainingEnergy = GetEnergyAfterAction(context, currentAction, extraEnergy: 0);
         return context.LegalActions.Count(candidate =>
         {
             if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal))
@@ -470,7 +487,7 @@ internal sealed class CombatActionScorer
                 return false;
             }
 
-            if ((candidate.EnergyCost ?? 0) > Math.Max(0, context.Energy - (currentAction.EnergyCost ?? 0)))
+            if (!IsAffordableAtEnergy(context, candidate, remainingEnergy))
             {
                 return false;
             }
@@ -482,6 +499,7 @@ internal sealed class CombatActionScorer
 
     private static int CountAffordableBlockActions(DeterministicCombatContext context, AiLegalActionOption currentAction)
     {
+        int remainingEnergy = GetEnergyAfterAction(context, currentAction, extraEnergy: 0);
         return context.LegalActions.Count(candidate =>
         {
             if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal))
@@ -489,7 +507,7 @@ internal sealed class CombatActionScorer
                 return false;
             }
 
-            if ((candidate.EnergyCost ?? 0) > Math.Max(0, context.Energy - (currentAction.EnergyCost ?? 0)))
+            if (!IsAffordableAtEnergy(context, candidate, remainingEnergy))
             {
                 return false;
             }
@@ -501,11 +519,26 @@ internal sealed class CombatActionScorer
 
     private static int CountAffordablePlayableActions(DeterministicCombatContext context, AiLegalActionOption currentAction, int extraEnergy)
     {
-        int remainingEnergy = Math.Max(0, context.Energy - (currentAction.EnergyCost ?? 0) + extraEnergy);
+        int remainingEnergy = GetEnergyAfterAction(context, currentAction, extraEnergy);
         return context.LegalActions.Count(candidate =>
             !string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) &&
             !string.Equals(candidate.ActionType, AiTeammateActionKind.EndTurn.ToString(), StringComparison.Ordinal) &&
-            (candidate.EnergyCost ?? 0) <= remainingEnergy);
+            IsAffordableAtEnergy(context, candidate, remainingEnergy));
+    }
+
+    private static int GetEnergyAfterAction(DeterministicCombatContext context, AiLegalActionOption action, int extraEnergy)
+    {
+        ResolvedCardView? card = ResolveCard(context, action);
+        int spentEnergy = card?.HasXCost == true ? context.Energy : action.EnergyCost ?? 0;
+        return Math.Max(0, context.Energy - spentEnergy + extraEnergy);
+    }
+
+    private static bool IsAffordableAtEnergy(DeterministicCombatContext context, AiLegalActionOption action, int energyRemaining)
+    {
+        ResolvedCardView? card = ResolveCard(context, action);
+        return card?.HasXCost == true
+            ? energyRemaining > 0
+            : (action.EnergyCost ?? 0) <= energyRemaining;
     }
 
     private static int CountNonPotionAttackActions(DeterministicCombatContext context)

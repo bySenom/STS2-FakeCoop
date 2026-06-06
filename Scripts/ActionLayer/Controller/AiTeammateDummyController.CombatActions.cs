@@ -36,6 +36,12 @@ internal sealed partial class AiTeammateDummyController
 
         foreach (CardModel card in handCards)
         {
+            if (card.EnergyCost.CostsX && (player.PlayerCombatState?.Energy ?? 0) <= 0)
+            {
+                Log.Debug($"[AITeammate] Skipped combat action for X-cost card={card.Id.Entry} instance={GetCardInstanceId(card)} because energy=0.");
+                continue;
+            }
+
             UnplayableReason reason;
             MegaCrit.Sts2.Core.Models.AbstractModel? preventer;
             if (!card.CanPlay(out reason, out preventer))

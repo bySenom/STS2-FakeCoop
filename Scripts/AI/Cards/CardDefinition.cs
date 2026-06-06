@@ -15,6 +15,8 @@ internal sealed class CardDefinition
 
     public required int BaseCost { get; init; }
 
+    public bool HasXCost { get; init; }
+
     public required string Rarity { get; init; }
 
     public IReadOnlyList<string> Keywords { get; init; } = [];

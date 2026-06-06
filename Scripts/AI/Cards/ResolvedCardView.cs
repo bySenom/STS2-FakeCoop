@@ -17,6 +17,8 @@ internal sealed class ResolvedCardView
 
     public required int EffectiveCost { get; init; }
 
+    public bool HasXCost { get; init; }
+
     public required string Rarity { get; init; }
 
     public IReadOnlyList<string> Keywords { get; init; } = [];

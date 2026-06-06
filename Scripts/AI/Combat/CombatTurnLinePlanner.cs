@@ -20,7 +20,7 @@ internal sealed class CombatTurnLinePlanner
     {
         List<PlannableAction> actions = context.LegalActions
             .Select(action => BuildPlannableAction(context, action))
-            .Where(static action => !action.IsEndTurn)
+            .Where(static action => !action.IsEndTurn && !action.IsZeroEnergyXCost)
             .ToList();
         if (actions.Count == 0)
         {
@@ -128,6 +128,8 @@ internal sealed class CombatTurnLinePlanner
             IsHighVariance = isHighVariance,
             IsEndTurn = string.Equals(action.ActionType, AiTeammateActionKind.EndTurn.ToString(), StringComparison.Ordinal),
             IsOffensivePotion = isOffensivePotion,
+            IsXCost = card?.HasXCost == true,
+            IsZeroEnergyXCost = card?.HasXCost == true && context.Energy <= 0,
             AppliesVulnerable = appliesVulnerable,
             IsSetup = immediateScore.Category is CombatActionCategory.PowerSetup or CombatActionCategory.Utility || buildRole == CombatBuildRole.Setup,
             BuildRole = buildRole,
@@ -189,6 +191,20 @@ internal sealed class CombatTurnLinePlanner
                || potionId.Contains("FIRE", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsZeroEnergyXCost(DeterministicCombatContext context, AiLegalActionOption action)
+    {
+        ResolvedCardView? card = ResolveCard(context, action);
+        return card?.HasXCost == true && context.Energy <= 0;
+    }
+
+    private static bool IsAffordableAtEnergy(DeterministicCombatContext context, AiLegalActionOption action, int energyRemaining)
+    {
+        ResolvedCardView? card = ResolveCard(context, action);
+        return card?.HasXCost == true
+            ? energyRemaining > 0
+            : (action.EnergyCost ?? 0) <= energyRemaining;
+    }
+
     private sealed class PlannableAction
     {
         public required AiLegalActionOption Action { get; init; }
@@ -226,6 +242,10 @@ internal sealed class CombatTurnLinePlanner
         public bool IsEndTurn { get; init; }
 
         public bool IsOffensivePotion { get; init; }
+
+        public bool IsXCost { get; init; }
+
+        public bool IsZeroEnergyXCost { get; init; }
 
         public bool AppliesVulnerable { get; init; }
 
@@ -308,7 +328,17 @@ internal sealed class CombatTurnLinePlanner
                 return false;
             }
 
-            if (action.EnergyCost > EnergyRemaining)
+            if (action.IsXCost && EnergyRemaining <= 0)
+            {
+                return false;
+            }
+
+            if (!action.IsXCost && action.EnergyCost > EnergyRemaining)
+            {
+                return false;
+            }
+
+            if (action.IsZeroEnergyXCost)
             {
                 return false;
             }
@@ -320,9 +350,10 @@ internal sealed class CombatTurnLinePlanner
         {
             AiCombatStatusWeights status = context.CombatConfig.Combat.StatusWeights;
             AiCombatResourceWeights resource = context.CombatConfig.Combat.ResourceWeights;
+            int spentEnergy = action.IsXCost ? EnergyRemaining : action.EnergyCost;
             LineNode next = new(this)
             {
-                EnergyRemaining = Math.Max(0, EnergyRemaining - action.EnergyCost + action.EnergyGain)
+                EnergyRemaining = Math.Max(0, EnergyRemaining - spentEnergy + action.EnergyGain)
             };
             next.ActionIds.Add(action.Action.ActionId);
             next._consumedKeys.Add(action.ConsumptionKey);
@@ -467,7 +498,7 @@ internal sealed class CombatTurnLinePlanner
                 if (string.IsNullOrEmpty(action.ActionId) ||
                     node._consumedKeys.Contains(BuildConsumptionKey(action)) ||
                     string.Equals(action.ActionType, AiTeammateActionKind.EndTurn.ToString(), StringComparison.Ordinal) ||
-                    (action.EnergyCost ?? 0) > node.EnergyRemaining)
+                    !IsAffordableAtEnergy(context, action, node.EnergyRemaining))
                 {
                     return false;
                 }
@@ -516,7 +547,7 @@ internal sealed class CombatTurnLinePlanner
             int remainingAffordableActions = actions.Count(action =>
                 !_consumedKeys.Contains(action.ConsumptionKey) &&
                 !action.IsEndTurn &&
-                action.EnergyCost <= EnergyRemaining);
+                (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
 
             int score = BaseScore;
             score += risk.ApplySurvivalWeight(preventedByBlock * risk.PreventedDamageValuePerPoint);
@@ -555,7 +586,7 @@ internal sealed class CombatTurnLinePlanner
             bool hasUnplayedSetup = actions.Any(action =>
                 !_consumedKeys.Contains(action.ConsumptionKey) &&
                 action.BuildRole == CombatBuildRole.Setup &&
-                action.EnergyCost <= EnergyRemaining);
+                (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
             bool playedPayoff = ActionIds.Any(actionId =>
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher));

@@ -68,3 +68,10 @@
 - Enter combat with an active build profile and multiple playable cards.
 - Expected result: setup/cycle cards are preferred before payoff cards when survival and lethal do not override the line.
 - Good checks: Strength before multi-hit attacks, draw/energy before Claw/Sly/Grand Finale payoffs, Necrobinder engine cards before finishers.
+
+## X-Cost Zero-Energy Check
+
+- Enter combat with a playable X-cost card.
+- Spend all energy before the bot evaluates the card, or test a hand where only 0 energy remains.
+- Expected result: the bot should not play the X-cost card at 0 energy.
+- Check logs for `Skipped combat action for X-cost card` or `blocked zero-energy X-cost`.
