@@ -29,6 +29,7 @@ internal sealed partial class AiTeammateDummyController
     private bool _isExecutingAction;
     private string? _pendingEndTurnActionId;
     private string? _pendingEndTurnActionSetFingerprint;
+    private bool _pendingEndTurnCancelOnNonEndAction;
     private DateTime _pendingEndTurnCommitAtUtc = DateTime.MinValue;
     private string? _lastDeduplicationKey;
     private int _lastCompletedEndTurnRound = -1;
@@ -116,6 +117,7 @@ internal sealed partial class AiTeammateDummyController
             {
                 _pendingEndTurnActionId = endTurnActionId;
                 _pendingEndTurnActionSetFingerprint = actionSetFingerprint;
+                _pendingEndTurnCancelOnNonEndAction = true;
                 _pendingEndTurnCommitAtUtc = DateTime.UtcNow + EndTurnGraceInterval;
                 _nextDecisionAtUtc = DateTime.UtcNow + IdleTickInterval;
                 Log.Info($"[AITeammate] Player={PlayerId} scheduled delayed end turn actionId={endTurnActionId} graceMs={(int)EndTurnGraceInterval.TotalMilliseconds}");
@@ -305,7 +307,7 @@ internal sealed partial class AiTeammateDummyController
         }
 
         bool hasNonEndTurnAction = decisionActions.Any(action => !IsEndTurnAction(action));
-        if (hasNonEndTurnAction)
+        if (_pendingEndTurnCancelOnNonEndAction && hasNonEndTurnAction)
         {
             ClearPendingEndTurn("better_actions_available");
             return false;
@@ -353,6 +355,7 @@ internal sealed partial class AiTeammateDummyController
             {
                 _pendingEndTurnActionId = actionId;
                 _pendingEndTurnActionSetFingerprint = actionSetFingerprint;
+                _pendingEndTurnCancelOnNonEndAction = false;
                 _pendingEndTurnCommitAtUtc = DateTime.UtcNow + EndTurnGraceInterval;
                 Log.Info($"[AITeammate] Player={PlayerId} scheduled delayed end turn actionId={actionId} graceMs={(int)EndTurnGraceInterval.TotalMilliseconds}");
             }
@@ -379,6 +382,7 @@ internal sealed partial class AiTeammateDummyController
         Log.Info($"[AITeammate] Player={PlayerId} canceled delayed end turn actionId={_pendingEndTurnActionId} reason={reason}");
         _pendingEndTurnActionId = null;
         _pendingEndTurnActionSetFingerprint = null;
+        _pendingEndTurnCancelOnNonEndAction = false;
         _pendingEndTurnCommitAtUtc = DateTime.MinValue;
     }
 

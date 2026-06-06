@@ -89,5 +89,6 @@
 - Give the bot at least two pure block cards and one useful damage/setup card.
 - Expected result: after incoming damage is covered, the bot should not spend another action on pure block unless it has block retention or a Body Slam/Barricade-style plan.
 - Check logs for `blocked redundant block-only` when a redundant block action is scored.
+- If only redundant block/status actions remain, expected result is a delayed end turn commit instead of repeatedly canceling end turn.
 - Add `Burn`, `Disintegration`, or similar `take X damage` status cards to hand and confirm the bot blocks that extra damage.
 - Add `Beckon` or similar `lose X HP` status cards and confirm it is counted as life risk but not treated as blockable damage.
