@@ -101,6 +101,7 @@ internal sealed class CombatTurnLinePlanner
         bool isHighVariance = cardsDrawn > 0;
         bool isOffensivePotion = IsOffensivePotion(action);
         bool appliesVulnerable = vulnerable > 0;
+        CombatBuildRole buildRole = CombatBuildRoleEvaluator.Classify(context, card);
 
         if (isOffensivePotion && vulnerable <= 0)
         {
@@ -128,7 +129,8 @@ internal sealed class CombatTurnLinePlanner
             IsEndTurn = string.Equals(action.ActionType, AiTeammateActionKind.EndTurn.ToString(), StringComparison.Ordinal),
             IsOffensivePotion = isOffensivePotion,
             AppliesVulnerable = appliesVulnerable,
-            IsSetup = immediateScore.Category is CombatActionCategory.PowerSetup or CombatActionCategory.Utility,
+            IsSetup = immediateScore.Category is CombatActionCategory.PowerSetup or CombatActionCategory.Utility || buildRole == CombatBuildRole.Setup,
+            BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
         };
     }
@@ -228,6 +230,8 @@ internal sealed class CombatTurnLinePlanner
         public bool AppliesVulnerable { get; init; }
 
         public bool IsSetup { get; init; }
+
+        public CombatBuildRole BuildRole { get; init; }
     }
 
     private sealed class LineNode
@@ -323,6 +327,7 @@ internal sealed class CombatTurnLinePlanner
             next.ActionIds.Add(action.Action.ActionId);
             next._consumedKeys.Add(action.ConsumptionKey);
             next.BaseScore += action.ImmediateScore.TotalScore;
+            next.BaseScore += next.ScoreBuildRotation(context, action);
             next.EnergyGenerated += action.EnergyGain;
             next.CardsDrawn += action.CardsDrawn;
 
@@ -411,6 +416,50 @@ internal sealed class CombatTurnLinePlanner
             return next;
         }
 
+        private int ScoreBuildRotation(DeterministicCombatContext context, PlannableAction action)
+        {
+            if (context.ActiveBuild == null || action.BuildRole == CombatBuildRole.None)
+            {
+                return 0;
+            }
+
+            int score = 0;
+            bool hasSetup = SetupScore > 0 || StrengthGained > 0 || DexterityGained > 0 || CardsDrawn > 0 || EnergyGenerated > 0;
+            switch (action.BuildRole)
+            {
+                case CombatBuildRole.Setup:
+                    score += ActionIds.Count == 0 ? 18 : 8;
+                    break;
+                case CombatBuildRole.Cycle:
+                    score += ActionIds.Count == 0 ? 10 : 4;
+                    break;
+                case CombatBuildRole.Payoff:
+                    score += hasSetup ? 18 : -8;
+                    score += (StrengthGained + TemporaryStrengthGained) * Math.Max(action.DamageHits, 1) * 4;
+                    break;
+                case CombatBuildRole.Finisher:
+                    score += TotalDamageDealt > 0 || hasSetup ? 10 : 2;
+                    break;
+                case CombatBuildRole.Defense:
+                    int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock - TotalBlockGained);
+                    score += uncoveredDamage > 0 ? 12 : 2;
+                    break;
+                case CombatBuildRole.Avoid:
+                    score -= context.ActiveBuild.IsLocked ? 28 : 12;
+                    break;
+            }
+
+            if (action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher &&
+                context.ActiveBuild.Profile.BuildId is "strength" or "shiv" or "claw" or "strike" &&
+                StrengthGained + TemporaryStrengthGained <= 0 &&
+                ActionIds.Count == 0)
+            {
+                score -= 10;
+            }
+
+            return score;
+        }
+
         private int CountAffordableUnconsumedActions(LineNode node, DeterministicCombatContext context, bool requireDamage = false, bool requireBlock = false)
         {
             return context.LegalActions.Count(action =>
@@ -476,6 +525,7 @@ internal sealed class CombatTurnLinePlanner
             score += DamagePreventedByWeak * risk.WeakPreventionValuePerPoint;
             score += risk.ApplyAttackWeight(TotalDamageDealt * core.LineDamageValuePerPoint);
             score += SetupScore;
+            score += ScoreUnplayedBuildRotationPenalty(actions);
             score += risk.ApplyDefenseWeight(leftoverBlock * core.LeftoverBlockValuePerPoint);
             score += _deadEnemyIds.Count * risk.DeadEnemyReward;
             score += StrengthGained * status.LinePersistentStrengthValue;
@@ -498,6 +548,18 @@ internal sealed class CombatTurnLinePlanner
             }
 
             return score;
+        }
+
+        private int ScoreUnplayedBuildRotationPenalty(IReadOnlyList<PlannableAction> actions)
+        {
+            bool hasUnplayedSetup = actions.Any(action =>
+                !_consumedKeys.Contains(action.ConsumptionKey) &&
+                action.BuildRole == CombatBuildRole.Setup &&
+                action.EnergyCost <= EnergyRemaining);
+            bool playedPayoff = ActionIds.Any(actionId =>
+                actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
+                                      action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher));
+            return hasUnplayedSetup && playedPayoff ? -24 : 0;
         }
     }
 }

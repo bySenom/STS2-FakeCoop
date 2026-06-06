@@ -54,3 +54,10 @@
 - Decision: `F4` toggles a host auto-mode controller that ticks the host player through the same `AiTeammateDummyController` decision path.
 - Reasoning: the user can hand control to the bot temporarily without changing party setup or adding a fake player. While enabled, `AiTeammateDummyController.IsAiPlayer` treats the host as AI-controlled so existing reward/card/relic selection patches also apply.
 - Verification: press `F4` during a run and confirm logs show host auto-mode enabled/disabled; then confirm the host can auto-play combat and auto-resolve reward choices.
+
+## Build-Aware Combat Rotation
+
+- Patch point: `CombatTurnLinePlanner`.
+- Decision: classify active-build cards into setup, payoff, cycle, defense, finisher, or avoid roles, then score lines for setup-before-payoff sequencing.
+- Reasoning: strong decks need to pilot their engine. Strength should set up before multi-hit payoff, cycle decks should draw/energy first, and locked builds should avoid wasting turns on off-build cards unless survival/lethal requires it.
+- Verification: inspect combat line logs and semantic scores; build payoff cards should be delayed behind playable setup/cycle cards when the line planner can afford it.

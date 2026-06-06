@@ -62,3 +62,9 @@
 - Expected result: logs show `[AITeammate][AutoMode] Host auto-mode enabled`.
 - While enabled, the host player uses the same deterministic AI choices for combat, rewards, card selections, relic selections, shops, events, and rest sites.
 - Press `F4` again to disable host auto-mode.
+
+## Build-Aware Combat Rotation Check
+
+- Enter combat with an active build profile and multiple playable cards.
+- Expected result: setup/cycle cards are preferred before payoff cards when survival and lethal do not override the line.
+- Good checks: Strength before multi-hit attacks, draw/energy before Claw/Sly/Grand Finale payoffs, Necrobinder engine cards before finishers.
