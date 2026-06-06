@@ -102,6 +102,8 @@ internal sealed class CombatTurnLinePlanner
         bool isOffensivePotion = IsOffensivePotion(action);
         bool appliesVulnerable = vulnerable > 0;
         CombatBuildRole buildRole = CombatBuildRoleEvaluator.Classify(context, card);
+        bool isEngineSetup = CombatBuildRoleEvaluator.IsEngineSetup(context, card);
+        bool isEnginePayoff = CombatBuildRoleEvaluator.IsEnginePayoff(context, card);
 
         if (isOffensivePotion && vulnerable <= 0)
         {
@@ -132,6 +134,8 @@ internal sealed class CombatTurnLinePlanner
             IsZeroEnergyXCost = card?.HasXCost == true && context.Energy <= 0,
             AppliesVulnerable = appliesVulnerable,
             IsSetup = immediateScore.Category is CombatActionCategory.PowerSetup or CombatActionCategory.Utility || buildRole == CombatBuildRole.Setup,
+            IsEngineSetup = isEngineSetup,
+            IsEnginePayoff = isEnginePayoff,
             BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
         };
@@ -250,6 +254,10 @@ internal sealed class CombatTurnLinePlanner
         public bool AppliesVulnerable { get; init; }
 
         public bool IsSetup { get; init; }
+
+        public bool IsEngineSetup { get; init; }
+
+        public bool IsEnginePayoff { get; init; }
 
         public CombatBuildRole BuildRole { get; init; }
     }
@@ -460,12 +468,22 @@ internal sealed class CombatTurnLinePlanner
             {
                 case CombatBuildRole.Setup:
                     score += ActionIds.Count == 0 ? 18 : 8;
+                    if (action.IsEngineSetup)
+                    {
+                        score += ActionIds.Count == 0 ? 18 : 10;
+                    }
+
                     break;
                 case CombatBuildRole.Cycle:
                     score += ActionIds.Count == 0 ? 10 : 4;
                     break;
                 case CombatBuildRole.Payoff:
                     score += hasSetup ? 18 : -8;
+                    if (action.IsEnginePayoff && !hasSetup)
+                    {
+                        score -= 18;
+                    }
+
                     score += (StrengthGained + TemporaryStrengthGained) * Math.Max(action.DamageHits, 1) * 4;
                     break;
                 case CombatBuildRole.Finisher:
@@ -587,10 +605,23 @@ internal sealed class CombatTurnLinePlanner
                 !_consumedKeys.Contains(action.ConsumptionKey) &&
                 action.BuildRole == CombatBuildRole.Setup &&
                 (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
+            bool hasUnplayedEngineSetup = actions.Any(action =>
+                !_consumedKeys.Contains(action.ConsumptionKey) &&
+                action.IsEngineSetup &&
+                (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
             bool playedPayoff = ActionIds.Any(actionId =>
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher));
-            return hasUnplayedSetup && playedPayoff ? -24 : 0;
+            bool playedEnginePayoff = ActionIds.Any(actionId =>
+                actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
+                                      action.IsEnginePayoff));
+            int score = hasUnplayedSetup && playedPayoff ? -24 : 0;
+            if (hasUnplayedEngineSetup && playedEnginePayoff)
+            {
+                score -= 36;
+            }
+
+            return score;
         }
     }
 }

@@ -19,6 +19,11 @@ internal static class CombatBuildRoleEvaluator
         }
 
         string buildId = profile.BuildId;
+        if (IsEngineSetup(context, card))
+        {
+            return CombatBuildRole.Setup;
+        }
+
         if (IsDefenseBuild(buildId) && (card.GetEstimatedBlock() > 0 || card.GetEnemyWeakAmount() > 0))
         {
             return CombatBuildRole.Defense;
@@ -52,6 +57,38 @@ internal static class CombatBuildRoleEvaluator
         return CombatBuildRole.None;
     }
 
+    public static bool IsEngineSetup(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        if (card == null || context.ActiveBuild == null)
+        {
+            return false;
+        }
+
+        string buildId = context.ActiveBuild.Profile.BuildId;
+        if (IsOrbSetupBuild(buildId) && IsOrbSetupCard(card))
+        {
+            return true;
+        }
+
+        return IsStarSetupBuild(buildId) && IsStarSetupCard(card);
+    }
+
+    public static bool IsEnginePayoff(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        if (card == null || context.ActiveBuild == null)
+        {
+            return false;
+        }
+
+        string buildId = context.ActiveBuild.Profile.BuildId;
+        if (IsOrbSetupBuild(buildId) && IsOrbPayoffCard(card))
+        {
+            return true;
+        }
+
+        return IsStarSetupBuild(buildId) && IsStarPayoffCard(card);
+    }
+
     private static bool IsSetupCard(string buildId, ResolvedCardView card)
     {
         if (card.Type == CardType.Power ||
@@ -66,9 +103,9 @@ internal static class CombatBuildRoleEvaluator
         {
             "poison" => HasToken(card, "NOXIOUS", "POISON", "BOUNCING"),
             "sly" or "grand_finale" or "claw" => IsCycleCard(card),
-            "frost" or "lightning" or "dark_orb" or "creative_ai" => HasToken(card, "DEFRA", "CAPACITOR", "ECHO", "STORM", "MACHINE"),
+            "frost" or "lightning" or "dark_orb" or "creative_ai" => HasToken(card, "DEFRA", "CAPACITOR", "ECHO", "STORM", "MACHINE") || IsOrbSetupCard(card),
             "osty" or "soul" or "doom" or "reaper" => HasToken(card, "INVOKE", "BORROWED", "DIRGE", "REANIMATE", "HAUNT", "CAPTURE", "COUNTDOWN", "REAPERFORM"),
-            "forge" or "star_burst" or "void_form" or "bombardment" => HasToken(card, "CONQUEROR", "SEEKING", "STARDUST", "GLOW", "VOID", "CONVERGENCE"),
+            "forge" or "star_burst" or "void_form" or "bombardment" => HasToken(card, "CONQUEROR", "SEEKING", "VOID") || IsStarSetupCard(card),
             "barricade" or "exhaust" or "bloodletting" => HasToken(card, "BARRICADE", "CORRUPTION", "DARKEMBRACE", "FEELNOPAIN", "RUPTURE"),
             _ => false
         };
@@ -94,6 +131,58 @@ internal static class CombatBuildRoleEvaluator
             "osty" or "soul" or "doom" or "reaper" => HasToken(card, "SOULSTORM", "DEATHMARCH", "SCYTHE", "ERADICATE", "UNLEASH"),
             _ => false
         };
+    }
+
+    private static bool IsOrbSetupBuild(string buildId)
+    {
+        return buildId is "lightning" or "frost" or "dark_orb" or "creative_ai";
+    }
+
+    private static bool IsStarSetupBuild(string buildId)
+    {
+        return buildId is "forge" or "star_burst" or "void_form" or "bombardment";
+    }
+
+    private static bool IsOrbSetupCard(ResolvedCardView card)
+    {
+        return HasToken(
+            card,
+            "ZAP",
+            "BALLLIGHTNING",
+            "COLDSNAP",
+            "COOLHEADED",
+            "GLACIER",
+            "DARKNESS",
+            "CHILL",
+            "DOOMANDGLOOM",
+            "ELECTRODYNAMICS",
+            "STATICDISCHARGE",
+            "TEMPEST",
+            "STORM",
+            "CAPACITOR");
+    }
+
+    private static bool IsOrbPayoffCard(ResolvedCardView card)
+    {
+        return HasToken(card, "DUALCAST", "MULTICAST", "RECURSION", "CONSUME", "CONSUMING");
+    }
+
+    private static bool IsStarSetupCard(ResolvedCardView card)
+    {
+        return HasToken(
+            card,
+            "GUIDINGSTAR",
+            "FALLINGSTAR",
+            "STARDUST",
+            "SEVENSTARS",
+            "GLOW",
+            "CONVERGENCE",
+            "VENERATE");
+    }
+
+    private static bool IsStarPayoffCard(ResolvedCardView card)
+    {
+        return HasToken(card, "BIGBANG", "BLACKHOLE", "METEOR", "BOMBARDMENT", "GAMMA", "PHOTON", "KNOCKOUT");
     }
 
     private static bool IsCycleCard(ResolvedCardView card)
@@ -123,4 +212,3 @@ internal static class CombatBuildRoleEvaluator
         return false;
     }
 }
-

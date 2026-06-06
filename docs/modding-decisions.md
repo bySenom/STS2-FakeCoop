@@ -68,3 +68,10 @@
 - Decision: do not expose X-cost cards as playable actions when the actor has 0 energy, and treat X-cost cards as spending all remaining energy in combat line planning.
 - Reasoning: X-cost cards can appear legal at 0 energy, but playing them then wastes the card. The scorer and planner also need to avoid counting them as free follow-up actions.
 - Verification: enter combat with an X-cost card, spend all energy first, and confirm the bot ends/chooses another action instead of playing the X-cost card at 0.
+
+## Regent and Defect Engine Rotation
+
+- Patch points: `CombatBuildRoleEvaluator` and `CombatTurnLinePlanner`.
+- Decision: classify Defect orb-fill cards as engine setup only for orb builds (`lightning`, `frost`, `dark_orb`, `creative_ai`), and classify Regent star-building cards as engine setup for Regent builds.
+- Reasoning: orb and star decks need to build their resource engine before spending payoff cards. Claw should not be forced into orb setup just because it is Defect.
+- Verification: in combat line logs, orb/star setup cards should appear before engine payoff cards when they are affordable and survival/lethal does not override it.

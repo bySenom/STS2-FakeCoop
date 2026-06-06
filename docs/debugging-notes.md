@@ -75,3 +75,10 @@
 - Spend all energy before the bot evaluates the card, or test a hand where only 0 energy remains.
 - Expected result: the bot should not play the X-cost card at 0 energy.
 - Check logs for `Skipped combat action for X-cost card` or `blocked zero-energy X-cost`.
+
+## Regent and Defect Engine Rotation Check
+
+- Defect: test `lightning`, `frost`, or `dark_orb` evidence with cards like `Zap`, `Ball Lightning`, `Glacier`, `Coolheaded`, `Darkness`, `Capacitor`, or `Storm`.
+- Expected result: the line planner prefers filling/building orb setup before `Dualcast`, `Multi-Cast`, `Recursion`, or other orb payoff when no emergency overrides it.
+- Regent: test star builds with `Guiding Star`, `Falling Star`, `Stardust`, `Seven Stars`, `Glow`, `Convergence`, or `Venerate`.
+- Expected result: star setup is played before payoff cards such as `Gamma Blast`, `Photon Cut`, `Meteor Shower`, `Big Bang`, or `Bombardment` when affordable.
