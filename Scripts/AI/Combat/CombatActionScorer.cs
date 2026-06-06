@@ -399,11 +399,13 @@ internal sealed class CombatActionScorer
 
         int score = 0;
         AiBuildArchetype profile = active.Profile;
-        if (AiBuildProfileAnalyzer.IsCoreCard(profile, card))
+        bool isCoreCard = AiBuildProfileAnalyzer.IsCoreCard(profile, card);
+        bool isSupportCard = AiBuildProfileAnalyzer.IsSupportCard(profile, card);
+        if (isCoreCard)
         {
             score += active.IsLocked ? 18 : 10;
         }
-        else if (AiBuildProfileAnalyzer.IsSupportCard(profile, card))
+        else if (isSupportCard)
         {
             score += active.IsLocked ? 8 : 4;
         }
@@ -412,7 +414,12 @@ internal sealed class CombatActionScorer
             score -= active.IsLocked ? 18 : 8;
         }
 
-        if (active.IsLocked && card.Type == CardType.Power && (AiBuildProfileAnalyzer.IsCoreCard(profile, card) || AiBuildProfileAnalyzer.IsSupportCard(profile, card)))
+        if (card.Type == CardType.Power && isCoreCard)
+        {
+            score += active.IsLocked ? 28 : 18;
+            score += context.IsEliteOrBossCombat ? 10 : 5;
+        }
+        else if (active.IsLocked && card.Type == CardType.Power && isSupportCard)
         {
             score += context.IsEliteOrBossCombat ? 8 : 4;
         }

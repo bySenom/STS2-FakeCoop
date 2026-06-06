@@ -94,3 +94,10 @@
 - If only redundant block/status actions remain, expected result is a delayed end turn commit instead of repeatedly canceling end turn.
 - Add `Burn`, `Disintegration`, or similar `take X damage` status cards to hand and confirm the bot blocks that extra damage.
 - Add `Beckon` or similar `lose X HP` status cards and confirm it is counted as life risk but not treated as blockable damage.
+
+## Core Build Power Priority Check
+
+- Enter combat with an active build profile and 3 energy.
+- Good checks: Ironclad `Demon Form` in Strength, Defect `Echo Form` in Lightning/Creative AI, Ironclad `Barricade` in Body Slam/Barricade, or Regent `Void Form`.
+- Expected result: the bot plays the affordable core power early, usually first, when there is no lethal/survival emergency.
+- If the bot skips the power, compare enemy incoming damage, lethal opportunity, and combat line scores before changing weights.

@@ -89,6 +89,18 @@ internal static class CombatBuildRoleEvaluator
         return IsStarSetupBuild(buildId) && IsStarPayoffCard(card);
     }
 
+    public static bool IsCoreBuildCard(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        return card != null &&
+               context.ActiveBuild != null &&
+               AiBuildProfileAnalyzer.IsCoreCard(context.ActiveBuild.Profile, card);
+    }
+
+    public static bool IsCoreBuildPower(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        return IsCoreBuildCard(context, card) && card!.Type == CardType.Power;
+    }
+
     private static bool IsSetupCard(string buildId, ResolvedCardView card)
     {
         if (card.Type == CardType.Power ||

@@ -108,6 +108,8 @@ internal sealed class CombatTurnLinePlanner
         CombatBuildRole buildRole = CombatBuildRoleEvaluator.Classify(context, card);
         bool isEngineSetup = CombatBuildRoleEvaluator.IsEngineSetup(context, card);
         bool isEnginePayoff = CombatBuildRoleEvaluator.IsEnginePayoff(context, card);
+        bool isCoreBuildCard = CombatBuildRoleEvaluator.IsCoreBuildCard(context, card);
+        bool isCoreBuildPower = CombatBuildRoleEvaluator.IsCoreBuildPower(context, card);
 
         if (isOffensivePotion && vulnerable <= 0)
         {
@@ -140,6 +142,8 @@ internal sealed class CombatTurnLinePlanner
             IsSetup = immediateScore.Category is CombatActionCategory.PowerSetup or CombatActionCategory.Utility || buildRole == CombatBuildRole.Setup,
             IsEngineSetup = isEngineSetup,
             IsEnginePayoff = isEnginePayoff,
+            IsCoreBuildCard = isCoreBuildCard,
+            IsCoreBuildPower = isCoreBuildPower,
             IsBlockOnlyDefense = isBlockOnlyDefense,
             BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
@@ -334,6 +338,10 @@ internal sealed class CombatTurnLinePlanner
         public bool IsEngineSetup { get; init; }
 
         public bool IsEnginePayoff { get; init; }
+
+        public bool IsCoreBuildCard { get; init; }
+
+        public bool IsCoreBuildPower { get; init; }
 
         public bool IsBlockOnlyDefense { get; init; }
 
@@ -554,18 +562,29 @@ internal sealed class CombatTurnLinePlanner
 
             int score = 0;
             bool hasSetup = SetupScore > 0 || StrengthGained > 0 || DexterityGained > 0 || CardsDrawn > 0 || EnergyGenerated > 0;
+            bool isFirstAction = ActionIds.Count <= 1;
             switch (action.BuildRole)
             {
                 case CombatBuildRole.Setup:
-                    score += ActionIds.Count == 0 ? 18 : 8;
+                    score += isFirstAction ? 18 : 8;
+                    if (action.IsCoreBuildCard)
+                    {
+                        score += isFirstAction ? 12 : 6;
+                    }
+
+                    if (action.IsCoreBuildPower)
+                    {
+                        score += isFirstAction ? 36 : 20;
+                    }
+
                     if (action.IsEngineSetup)
                     {
-                        score += ActionIds.Count == 0 ? 18 : 10;
+                        score += isFirstAction ? 18 : 10;
                     }
 
                     break;
                 case CombatBuildRole.Cycle:
-                    score += ActionIds.Count == 0 ? 10 : 4;
+                    score += isFirstAction ? 10 : 4;
                     break;
                 case CombatBuildRole.Payoff:
                     score += hasSetup ? 18 : -8;
@@ -591,7 +610,7 @@ internal sealed class CombatTurnLinePlanner
             if (action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher &&
                 context.ActiveBuild.Profile.BuildId is "strength" or "shiv" or "claw" or "strike" &&
                 StrengthGained + TemporaryStrengthGained <= 0 &&
-                ActionIds.Count == 0)
+                isFirstAction)
             {
                 score -= 10;
             }
@@ -699,13 +718,26 @@ internal sealed class CombatTurnLinePlanner
                 !_consumedKeys.Contains(action.ConsumptionKey) &&
                 action.IsEngineSetup &&
                 (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
+            bool hasUnplayedCoreBuildPower = actions.Any(action =>
+                !_consumedKeys.Contains(action.ConsumptionKey) &&
+                action.IsCoreBuildPower &&
+                (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
             bool playedPayoff = ActionIds.Any(actionId =>
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher));
+            bool playedNonCoreBuildAction = ActionIds.Any(actionId =>
+                actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
+                                      !action.IsCoreBuildPower &&
+                                      action.BuildRole is CombatBuildRole.Setup or CombatBuildRole.Cycle or CombatBuildRole.Payoff or CombatBuildRole.Finisher));
             bool playedEnginePayoff = ActionIds.Any(actionId =>
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.IsEnginePayoff));
             int score = hasUnplayedSetup && playedPayoff ? -24 : 0;
+            if (hasUnplayedCoreBuildPower && playedNonCoreBuildAction)
+            {
+                score -= 42;
+            }
+
             if (hasUnplayedEngineSetup && playedEnginePayoff)
             {
                 score -= 36;

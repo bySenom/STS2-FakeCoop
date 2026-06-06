@@ -85,3 +85,11 @@
 - Status-card policy: hand cards with `take X damage` at end of turn add blockable threat; cards with `lose X HP` add unavoidable life loss and should not cause overblocking.
 - End-turn policy: when the combat backend chooses end turn despite remaining non-end actions, the delayed end-turn commit is no longer canceled just because those actions still exist.
 - Verification: with 5 incoming damage and enough current/planned block already available, the bot should stop playing additional pure block cards and prefer useful damage/setup or end turn. In Barricade/Body Slam decks, extra block may still be played before payoff.
+
+## Core Build Power Priority
+
+- Patch points: `CombatBuildRoleEvaluator`, `CombatActionScorer.Score`, and `CombatTurnLinePlanner`.
+- Decision: active-profile core powers get an additional combat-investment bonus and line-planning priority, especially as the first played card in a turn.
+- Reasoning: cards such as `Demon Form`, `Echo Form`, `Barricade`, `Creative AI`, and `Void Form` cost a full turn of energy but stay active for the rest of combat. The AI should not treat them like inefficient expensive cards when they are core to the selected build.
+- Safety policy: this is still score-based. Lethal damage, urgent survival, or immediate lethal opportunities can override the power priority.
+- Verification: with 3 energy and a locked/evidenced build, a playable core power should be chosen before ordinary attacks, cycle, or payoff cards unless an emergency overrides it.
