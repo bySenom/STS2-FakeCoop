@@ -61,7 +61,10 @@
 - Press `F4` during the run.
 - Expected result: logs show `[AITeammate][AutoMode] Host auto-mode enabled`.
 - While enabled, the host player uses the same deterministic AI choices for combat.
-- Room-end card reward UI should still appear for the host, including modded reward pools with more than three cards.
+- Room-end rewards should auto-resolve for the host while auto-mode is enabled.
+- Gold should be collected automatically.
+- Card rewards should log `[AITeammate] Card evaluation` and either pick the best build-fitting card or skip weak/off-build offers.
+- Modded reward pools with more than three cards should be evaluated as one candidate list.
 - AI teammates should still resolve their own rewards deterministically after the host reward flow completes.
 - Press `F4` again to disable host auto-mode.
 

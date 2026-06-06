@@ -19,11 +19,12 @@ internal static class AiTeammateRewardPatches
     {
         private static bool Prefix(RewardsSet __instance, ref Task __result)
         {
-            if (!AiTeammateDummyController.IsAiTeammatePlayer(__instance.Player))
+            if (!AiTeammateDummyController.IsAiPlayer(__instance.Player))
             {
                 return true;
             }
 
+            Log.Info($"[AITeammate] Deterministically resolving reward offer player={__instance.Player.NetId} autoMode={AiTeammateHostAutoMode.IsAutoControlled(__instance.Player)}");
             __result = AiTeammateDummyController.ExecuteDeterministicRewardSetAsync(__instance);
             return false;
         }
@@ -103,11 +104,12 @@ internal static class AiTeammateRewardPatches
     {
         private static bool Prefix(CardReward __instance, ref Task<bool> __result)
         {
-            if (!AiTeammateDummyController.IsAiTeammatePlayer(__instance.Player))
+            if (!AiTeammateDummyController.IsAiPlayer(__instance.Player))
             {
                 return true;
             }
 
+            Log.Info($"[AITeammate] Deterministically resolving card reward player={__instance.Player.NetId} autoMode={AiTeammateHostAutoMode.IsAutoControlled(__instance.Player)}");
             __result = AiTeammateDummyController.ExecuteDeterministicCardRewardAsync(__instance);
             return false;
         }

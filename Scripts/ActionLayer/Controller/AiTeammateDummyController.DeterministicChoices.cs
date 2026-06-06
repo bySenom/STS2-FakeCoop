@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using MegaCrit.Sts2.Core.CardSelection;
 using MegaCrit.Sts2.Core.Entities.CardRewardAlternatives;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
@@ -110,6 +111,43 @@ internal sealed partial class AiTeammateDummyController
         return decision.ShouldTakeCard
             ? decision.BestEvaluation?.CandidateCard
             : null;
+    }
+
+    public static Task<IEnumerable<CardModel>> ChooseRewardGridCardsAsync(
+        PlayerChoiceContext context,
+        IReadOnlyList<CardCreationResult> cards,
+        Player player,
+        CardSelectorPrefs prefs)
+    {
+        List<CardModel> options = cards.Select(static card => card.Card).ToList();
+        int desiredCount = ComputeSelectionCount(options.Count, prefs.MinSelect, prefs.MaxSelect);
+        if (desiredCount <= 0)
+        {
+            return Task.FromResult<IEnumerable<CardModel>>(Array.Empty<CardModel>());
+        }
+
+        bool canSkip = prefs.MinSelect <= 0;
+        CardChoiceDecision decision = CardEvaluator.EvaluateCandidates(
+            options,
+            CardEvaluator.ContextFactory.Create(
+                player,
+                canSkip ? CardChoiceSource.Reward : CardChoiceSource.ForcedChoice,
+                canSkip,
+                debugSource: "simple_grid_reward"));
+        LogCardChoiceDecision(player, decision, "simple_grid_reward");
+
+        if (!decision.ShouldTakeCard && canSkip)
+        {
+            Log.Info($"[AITeammate] Deterministic simple-grid reward skipped player={player.NetId} threshold={decision.SkipThreshold:F1}");
+            return Task.FromResult<IEnumerable<CardModel>>(Array.Empty<CardModel>());
+        }
+
+        List<CardModel> selected = decision.RankedResults
+            .Select(static result => result.CandidateCard)
+            .Take(desiredCount)
+            .ToList();
+        Log.Info($"[AITeammate] Deterministic simple-grid reward picked player={player.NetId} cards=[{string.Join(", ", selected.Select(static card => card.Id.Entry))}]");
+        return Task.FromResult<IEnumerable<CardModel>>(selected);
     }
 
     public static async Task<IEnumerable<CardModel>> ChooseDeterministicCardsAsync(

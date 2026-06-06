@@ -25,7 +25,7 @@ internal static class AiTeammateCardSelectionPatches
             bool canSkip,
             ref Task<CardModel?> __result)
         {
-            if (!AiTeammateDummyController.IsAiTeammatePlayer(player))
+            if (!AiTeammateDummyController.IsAiPlayer(player))
             {
                 return true;
             }
@@ -45,16 +45,16 @@ internal static class AiTeammateCardSelectionPatches
             CardSelectorPrefs prefs,
             ref Task<IEnumerable<CardModel>> __result)
         {
-            if (!AiTeammateDummyController.IsAiTeammatePlayer(player))
+            if (!AiTeammateDummyController.IsAiPlayer(player))
             {
                 return true;
             }
 
-            __result = AiTeammateDummyController.ChooseDeterministicCardsAsync(
+            __result = AiTeammateDummyController.ChooseRewardGridCardsAsync(
                 context,
-                cards.Select(static card => card.Card),
-                prefs.MinSelect,
-                prefs.MaxSelect);
+                cards,
+                player,
+                prefs);
             return false;
         }
     }
