@@ -77,18 +77,20 @@ internal sealed class CombatActionScorer
         int resourceSetupScore = ScoreResourceSetup(context, action, card);
         int killPotentialScore = ScoreKillPotential(context, action, card);
         int buildCombatFitScore = ScoreBuildCombatFit(context, action, card);
+        int futureTurnValueScore = ScoreFutureTurnValue(context, action, card);
         int totalScore = risk.ApplyAttackWeight(immediateDamageScore) +
                          risk.ApplyDefenseWeight(immediateDefenseScore) +
                          enemyDebuffScore +
                          selfBuffScore +
                          resourceSetupScore +
                          killPotentialScore +
+                         futureTurnValueScore +
                          ScoreEnergyEfficiency(context, action, card) +
                          buildCombatFitScore;
 
         CombatActionCategory category = Classify(card, immediateDamageScore, immediateDefenseScore, selfBuffScore, resourceSetupScore);
         Log.Debug(
-            $"[AITeammate] Semantic score actionId={action.ActionId} category={category} damage={immediateDamageScore} defense={immediateDefenseScore} debuff={enemyDebuffScore} buff={selfBuffScore} setup={resourceSetupScore} kill={killPotentialScore} build={buildCombatFitScore} total={totalScore}");
+            $"[AITeammate] Semantic score actionId={action.ActionId} category={category} damage={immediateDamageScore} defense={immediateDefenseScore} debuff={enemyDebuffScore} buff={selfBuffScore} setup={resourceSetupScore} kill={killPotentialScore} future={futureTurnValueScore} build={buildCombatFitScore} total={totalScore}");
 
         return new CombatActionScore
         {
@@ -623,7 +625,200 @@ internal sealed class CombatActionScorer
             score -= active.IsLocked ? 42 : 30;
         }
 
+        if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
+            HasAffordableHigherBuildDamageAction(context, action, card.GetEstimatedDamage()))
+        {
+            score -= active.IsLocked ? 48 : 34;
+        }
+
         return score;
+    }
+
+    private static int ScoreFutureTurnValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        int score = 0;
+        score += ScorePoisonFutureValue(context, action, card);
+        score += ScorePersistentEngineFutureValue(context, card);
+        score += ScoreNecrobinderFutureValue(context, action, card);
+        return score;
+    }
+
+    private static int ScorePoisonFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        int poisonAmount = card.GetEnemyPoisonAmount();
+        bool isPoisonBuild = context.ActiveBuild?.Profile.BuildId == "poison";
+        bool isPoisonNamedCard = HasCardToken(card, "POISON", "NOXIOUS", "CATALYST", "BOUNCING", "TOXIN", "VENOM");
+        if (poisonAmount <= 0 && !isPoisonNamedCard)
+        {
+            return 0;
+        }
+
+        int horizon = GetFutureHorizon(context);
+        int score = 0;
+        foreach (DeterministicEnemyState enemy in GetFutureValueTargets(context, action, card))
+        {
+            int currentPoison = GetEnemyPowerAmount(enemy, "POISON");
+            int effectiveHp = GetTeamAdjustedEnemyHp(context, enemy.Id, enemy);
+            if (poisonAmount > 0)
+            {
+                int futureDamage = EstimatePoisonDamage(currentPoison + poisonAmount, horizon) -
+                                   EstimatePoisonDamage(currentPoison, horizon);
+                int usefulFutureDamage = Math.Min(futureDamage, Math.Max(0, effectiveHp));
+                score += usefulFutureDamage * 4;
+                score += poisonAmount * (isPoisonBuild ? 8 : 5);
+            }
+
+            if (currentPoison > 0 && HasCardToken(card, "CATALYST", "BURST", "BOUNCING"))
+            {
+                int payoffDamage = Math.Min(EstimatePoisonDamage(currentPoison, horizon), Math.Max(0, effectiveHp));
+                score += payoffDamage * (isPoisonBuild ? 3 : 2);
+                score += currentPoison >= 6 ? 22 : 10;
+            }
+        }
+
+        if (isPoisonBuild && score > 0)
+        {
+            score += context.IsEliteOrBossCombat ? 28 : 16;
+        }
+
+        return score;
+    }
+
+    private static int ScorePersistentEngineFutureValue(DeterministicCombatContext context, ResolvedCardView card)
+    {
+        AiBuildProfileMatch? active = context.ActiveBuild;
+        int score = 0;
+        if (card.Type == CardType.Power)
+        {
+            bool isCore = active != null && AiBuildProfileAnalyzer.IsCoreCard(active.Profile, card);
+            bool isSupport = active != null && AiBuildProfileAnalyzer.IsSupportCard(active.Profile, card);
+            if (isCore || IsLongHorizonPower(card))
+            {
+                score += active?.IsLocked == true ? 58 : 42;
+                score += context.IsEliteOrBossCombat ? 24 : 10;
+            }
+            else if (isSupport)
+            {
+                score += active?.IsLocked == true ? 28 : 16;
+            }
+        }
+
+        if (CombatBuildRoleEvaluator.IsEngineSetup(context, card))
+        {
+            score += active?.IsLocked == true ? 38 : 26;
+            score += context.IsEliteOrBossCombat ? 12 : 4;
+        }
+
+        return score;
+    }
+
+    private static int ScoreNecrobinderFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        if (context.ActiveBuild?.Profile.CharacterId != "necrobinder")
+        {
+            return 0;
+        }
+
+        int score = 0;
+        int damage = card.GetEstimatedDamage();
+        if (damage >= 12 && (card.Targeting == TargetType.Osty || HasCardToken(card, "OSTY", "SOUL", "DEATH", "UNLEASH", "REAPER", "SCYTHE")))
+        {
+            score += Math.Min(damage, 40) * 4;
+            score += context.ActiveBuild.IsLocked ? 24 : 14;
+        }
+
+        if (CombatBuildRoleEvaluator.IsOstyGuardCard(card))
+        {
+            score += context.ActiveBuild.IsLocked ? 34 : 22;
+        }
+
+        if (CombatBuildRoleEvaluator.IsNecrobinderFreeSoulDraw(context, card))
+        {
+            score += 26;
+        }
+
+        if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
+            HasAffordableHigherBuildDamageAction(context, action, damage))
+        {
+            score -= 52;
+        }
+
+        return score;
+    }
+
+    private static IEnumerable<DeterministicEnemyState> GetFutureValueTargets(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        if (IsAllEnemiesDebuff(card, "Poison") || card.Targeting == TargetType.AllEnemies)
+        {
+            return context.EnemiesById.Values;
+        }
+
+        if (!string.IsNullOrEmpty(action.TargetId) &&
+            context.EnemiesById.TryGetValue(action.TargetId, out DeterministicEnemyState? enemy))
+        {
+            return [enemy];
+        }
+
+        return context.EnemiesById.Values;
+    }
+
+    private static int EstimatePoisonDamage(int poison, int turns)
+    {
+        int damage = 0;
+        for (int turn = 0; turn < turns && poison - turn > 0; turn++)
+        {
+            damage += poison - turn;
+        }
+
+        return damage;
+    }
+
+    private static int GetFutureHorizon(DeterministicCombatContext context)
+    {
+        if (context.IsBossCombat)
+        {
+            return 5;
+        }
+
+        if (context.IsEliteCombat)
+        {
+            return 4;
+        }
+
+        int enemyHp = context.EnemiesById.Values.Sum(static enemy => enemy.CurrentHp + enemy.Block);
+        return enemyHp >= 55 ? 4 : 3;
+    }
+
+    private static int GetEnemyPowerAmount(DeterministicEnemyState enemy, string token)
+    {
+        string normalizedToken = AiBuildProfileAnalyzer.Normalize(token);
+        foreach (KeyValuePair<string, int> pair in enemy.PowerAmounts)
+        {
+            if (AiBuildProfileAnalyzer.Normalize(pair.Key).Contains(normalizedToken, StringComparison.Ordinal))
+            {
+                return Math.Max(pair.Value, 0);
+            }
+        }
+
+        return 0;
+    }
+
+    private static bool IsLongHorizonPower(ResolvedCardView card)
+    {
+        return HasCardToken(
+            card,
+            "DEMONFORM",
+            "ECHOFORM",
+            "WRAITHFORM",
+            "CREATIVEAI",
+            "BARRICADE",
+            "NOXIOUS",
+            "DEFRA",
+            "CAPACITOR",
+            "VOIDFORM",
+            "REAPERFORM",
+            "RUPTURE",
+            "INFLAME");
     }
 
     private static bool HasUnplayedAffordableEngineSetup(DeterministicCombatContext context, AiLegalActionOption currentAction)
@@ -638,6 +833,64 @@ internal sealed class CombatActionScorer
 
             ResolvedCardView? card = ResolveCard(context, candidate);
             if (CombatBuildRoleEvaluator.IsEngineSetup(context, card))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasAffordableHigherBuildDamageAction(DeterministicCombatContext context, AiLegalActionOption currentAction, int currentDamage)
+    {
+        foreach (AiLegalActionOption candidate in context.LegalActions)
+        {
+            if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) ||
+                !IsAffordableAtEnergy(context, candidate, context.Energy))
+            {
+                continue;
+            }
+
+            ResolvedCardView? candidateCard = ResolveCard(context, candidate);
+            if (candidateCard == null || CombatBuildRoleEvaluator.IsWeakStarterStrike(candidateCard))
+            {
+                continue;
+            }
+
+            int candidateDamage = candidateCard.GetEstimatedDamage();
+            if (candidateDamage >= Math.Max(12, currentDamage + 8) &&
+                IsBuildRelevantDamageCard(context, candidateCard))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsBuildRelevantDamageCard(DeterministicCombatContext context, ResolvedCardView card)
+    {
+        if (context.ActiveBuild == null)
+        {
+            return false;
+        }
+
+        return CombatBuildRoleEvaluator.IsCoreBuildCard(context, card) ||
+               CombatBuildRoleEvaluator.IsEnginePayoff(context, card) ||
+               HasCardToken(card, context.ActiveBuild.Profile.CoreCards.Concat(context.ActiveBuild.Profile.SupportCards).ToArray()) ||
+               (context.ActiveBuild.Profile.CharacterId == "necrobinder" && card.Targeting == TargetType.Osty);
+    }
+
+    private static bool HasCardToken(ResolvedCardView card, params string[] tokens)
+    {
+        string normalizedName = AiBuildProfileAnalyzer.Normalize(card.Name);
+        string normalizedId = AiBuildProfileAnalyzer.Normalize(card.CardId);
+        foreach (string token in tokens)
+        {
+            string normalizedToken = AiBuildProfileAnalyzer.Normalize(token);
+            if (!string.IsNullOrEmpty(normalizedToken) &&
+                (normalizedName.Contains(normalizedToken, StringComparison.Ordinal) ||
+                 normalizedId.Contains(normalizedToken, StringComparison.Ordinal)))
             {
                 return true;
             }

@@ -62,7 +62,8 @@ internal sealed class DeterministicCombatContextBuilder
                 Creature = enemy,
                 IncomingDamage = enemyDamage,
                 ThreatScore = EstimateThreatScore(enemy, enemyDamage, intentSummary),
-                IntentSummary = intentSummary
+                IntentSummary = intentSummary,
+                PowerAmounts = BuildVisiblePowerAmounts(enemy)
             };
             incomingDamage += enemyDamage;
         }
@@ -111,6 +112,14 @@ internal sealed class DeterministicCombatContextBuilder
         }
 
         return Math.Max(total, 0);
+    }
+
+    private static Dictionary<string, int> BuildVisiblePowerAmounts(Creature creature)
+    {
+        return creature.Powers
+            .Where(static power => power.IsVisible)
+            .GroupBy(power => power.Id.Entry, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Sum(power => power.DisplayAmount), StringComparer.Ordinal);
     }
 
     private static string BuildIntentSummary(Creature enemy)

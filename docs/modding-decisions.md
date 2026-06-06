@@ -65,6 +65,17 @@
 - Reasoning: strong decks need to pilot their engine. Strength should set up before multi-hit payoff, cycle decks should draw/energy first, and locked builds should avoid wasting turns on off-build cards unless survival/lethal requires it.
 - Verification: inspect combat line logs and semantic scores; build payoff cards should be delayed behind playable setup/cycle cards when the line planner can afford it.
 
+## Future-Turn Combat Value
+
+- Patch points: `CardResolver`, `CardCatalogBuilder`, `DeterministicCombatContextBuilder`, and `CombatActionScorer.Score`.
+- Decision: add a separate future-turn score component to semantic combat scoring and log it as `future=...`.
+- Reasoning: some winning plays are not current-turn max damage. Poison stacks, persistent forms, orb/star setup, and Osty engine cards can win later turns even if a starter attack looks better immediately.
+- Poison policy: visible enemy poison stacks are read into combat context. Poison cards estimate useful poison damage over a 3-5 turn horizon, with longer horizons for elite/boss/high-HP fights.
+- Engine policy: long-term powers and active-build setup receive future value on top of immediate/build fit value.
+- Osty policy: card text fallback detects patterns like `deals X damage`, so ally/Osty damage cards are less likely to be undervalued when the game does not expose a normal damage dynamic variable.
+- Starter-strike policy: if an affordable higher-damage build card exists, basic starter `Strike` receives an additional penalty.
+- Verification: in debug logs, future-oriented cards should show nonzero `future=...` and should beat starter attacks unless survival, lethal, or target constraints override them.
+
 ## Zero-Energy X-Cost Guard
 
 - Patch points: `AiTeammateDummyController.DiscoverCombatActions`, `CombatActionScorer.Score`, and `CombatTurnLinePlanner`.

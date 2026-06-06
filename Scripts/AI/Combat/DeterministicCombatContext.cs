@@ -89,4 +89,6 @@ internal sealed class DeterministicEnemyState
     public required int ThreatScore { get; init; }
 
     public required string IntentSummary { get; init; }
+
+    public required Dictionary<string, int> PowerAmounts { get; init; }
 }

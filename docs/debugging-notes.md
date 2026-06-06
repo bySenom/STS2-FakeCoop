@@ -77,6 +77,15 @@
 - Enter combat with an active build profile and multiple playable cards.
 - Expected result: setup/cycle cards are preferred before payoff cards when survival and lethal do not override the line.
 - Good checks: Strength before multi-hit attacks, draw/energy before Claw/Sly/Grand Finale payoffs, Necrobinder engine cards before finishers.
+- Check semantic score logs for `future=...`; nonzero values mean the future-turn layer is contributing to the action choice.
+
+## Future-Turn Value Check
+
+- Silent Poison: stack poison on an enemy, then offer another poison card or a poison payoff such as `Catalyst`/`Burst`-style cards.
+- Expected result: poison cards should gain `future=...` value from estimated damage over the next 3-5 turns, especially in elite/boss or high-HP fights.
+- Defect/Regent/Forms: playable long-term powers and engine setup such as `Echo Form`, `Demon Form`, `Capacitor`, `Void Form`, or star/orb setup should gain future value beyond their immediate damage.
+- Necrobinder/Osty: a card whose text says an ally/Osty deals damage should be recognized from text when normal damage variables are missing.
+- Expected result: high-damage Osty/build cards should beat basic `Strike` unless Strike is lethal or survival/targeting makes it clearly better.
 
 ## X-Cost Zero-Energy Check
 
@@ -98,6 +107,7 @@
 - Expected result: `Bodyguard` is treated as Osty setup/support and should beat low-impact attacks when affordable.
 - Check logs for `Play ... ->` on an Osty/ally target. `TargetType.Osty` cards should not be reduced to only a `none` target.
 - Expected result: zero-cost Necrobinder draw/soul cards should be played early enough that the drawn cards can still be used.
+- Test an Osty damage card with text like `Osty deals 24 damage`; logs should show a `damage=...` and/or `future=...` score high enough to beat starter `Strike`.
 - For Ironclad draw-block cards such as `Shrug It Off`, expected result is similar: play before the end of the turn when draw can still become a playable action.
 
 ## Block Discipline Check

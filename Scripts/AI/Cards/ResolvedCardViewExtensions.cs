@@ -79,6 +79,12 @@ internal static class ResolvedCardViewExtensions
                card.GetAppliedPowerAmount("Weak", TargetScope.AllEnemies);
     }
 
+    public static int GetEnemyPoisonAmount(this ResolvedCardView? card)
+    {
+        return card.GetAppliedPowerAmount("Poison", TargetScope.SingleEnemy) +
+               card.GetAppliedPowerAmount("Poison", TargetScope.AllEnemies);
+    }
+
     public static int GetSelfStrengthAmount(this ResolvedCardView? card)
     {
         return card.GetAppliedPowerAmount("Strength", TargetScope.Self);

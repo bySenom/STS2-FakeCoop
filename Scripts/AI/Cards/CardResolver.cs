@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 using MegaCrit.Sts2.Core.Logging;
@@ -16,6 +17,7 @@ internal sealed class CardResolver : ICardResolver
     private static readonly string[] WeakKeys = ["WeakPower"];
     private static readonly string[] StrengthKeys = ["StrengthPower"];
     private static readonly string[] DexterityKeys = ["DexterityPower"];
+    private static readonly string[] PoisonKeys = ["PoisonPower", "Poison"];
 
     private readonly CardCatalogRepository _catalogRepository;
     private readonly CardDefinitionRepository _fallbackRepository;
@@ -351,6 +353,12 @@ internal sealed class CardResolver : ICardResolver
     {
         List<NormalizedEffectDescriptor> effects = [];
         int damage = GetEstimatedDamage(liveCard, out int repeatCount);
+        string description = liveCard.Description.GetFormattedText();
+        if (damage <= 0)
+        {
+            damage = ExtractTextAmount(description, @"\b(?:deal|deals)\s+(?<amount>\d+)\s+damage\b");
+        }
+
         if (damage > 0)
         {
             effects.Add(new NormalizedEffectDescriptor
@@ -386,8 +394,14 @@ internal sealed class CardResolver : ICardResolver
         AddPowerEffects(effects, liveCard, WeakKeys, "Weak");
         AddPowerEffects(effects, liveCard, StrengthKeys, "Strength");
         AddPowerEffects(effects, liveCard, DexterityKeys, "Dexterity");
+        AddPowerEffects(effects, liveCard, PoisonKeys, "Poison");
 
         int cardsDrawn = GetDynamicVarValue(liveCard, "Cards");
+        if (cardsDrawn <= 0)
+        {
+            cardsDrawn = ExtractTextAmount(description, @"\bdraw\s+(?<amount>\d+)\s+card");
+        }
+
         if (cardsDrawn > 0)
         {
             effects.Add(new NormalizedEffectDescriptor
@@ -401,6 +415,11 @@ internal sealed class CardResolver : ICardResolver
         }
 
         int energy = GetDynamicVarValue(liveCard, "Energy");
+        if (energy <= 0)
+        {
+            energy = ExtractTextAmount(description, @"\bgain\s+(?<amount>\d+)\s+(?:energy|\[e\])\b");
+        }
+
         if (energy > 0)
         {
             effects.Add(new NormalizedEffectDescriptor
@@ -414,6 +433,19 @@ internal sealed class CardResolver : ICardResolver
         }
 
         return effects;
+    }
+
+    private static int ExtractTextAmount(string description, string pattern)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return 0;
+        }
+
+        Match match = Regex.Match(description, pattern, RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups["amount"].Value, out int amount)
+            ? Math.Max(amount, 0)
+            : 0;
     }
 
     private static void AddPowerEffects(

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.HoverTips;
 using MegaCrit.Sts2.Core.Localization;
@@ -280,6 +281,11 @@ internal sealed class CardCatalogBuilder
         List<NormalizedEffectDescriptor> effects = [];
         int repeatCount = GetDynamicVar(dynamicVars, "Repeat", fallback: 1);
         int damage = Math.Max(0, GetDynamicVar(dynamicVars, "Damage") + GetDynamicVar(dynamicVars, "ExtraDamage"));
+        if (damage <= 0)
+        {
+            damage = ExtractTextAmount(description, @"\b(?:deal|deals)\s+(?<amount>\d+)\s+damage\b");
+        }
+
         if (damage > 0)
         {
             effects.Add(new NormalizedEffectDescriptor
@@ -315,8 +321,15 @@ internal sealed class CardCatalogBuilder
         AddApplyPowerEffect(effects, card.TargetType, description, dynamicVars, "Weak", "WeakPower");
         AddApplyPowerEffect(effects, card.TargetType, description, dynamicVars, "Strength", "StrengthPower");
         AddApplyPowerEffect(effects, card.TargetType, description, dynamicVars, "Dexterity", "DexterityPower");
+        AddApplyPowerEffect(effects, card.TargetType, description, dynamicVars, "Poison", "PoisonPower");
+        AddApplyPowerEffect(effects, card.TargetType, description, dynamicVars, "Poison", "Poison");
 
         int cardsDrawn = GetDynamicVar(dynamicVars, "Cards");
+        if (cardsDrawn <= 0)
+        {
+            cardsDrawn = ExtractTextAmount(description, @"\bdraw\s+(?<amount>\d+)\s+card");
+        }
+
         if (cardsDrawn > 0)
         {
             effects.Add(new NormalizedEffectDescriptor
@@ -330,6 +343,11 @@ internal sealed class CardCatalogBuilder
         }
 
         int energyGain = GetDynamicVar(dynamicVars, "Energy");
+        if (energyGain <= 0)
+        {
+            energyGain = ExtractTextAmount(description, @"\bgain\s+(?<amount>\d+)\s+(?:energy|\[e\])\b");
+        }
+
         if (energyGain > 0)
         {
             effects.Add(new NormalizedEffectDescriptor
@@ -343,6 +361,19 @@ internal sealed class CardCatalogBuilder
         }
 
         return effects;
+    }
+
+    private static int ExtractTextAmount(string description, string pattern)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return 0;
+        }
+
+        Match match = Regex.Match(description, pattern, RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups["amount"].Value, out int amount)
+            ? Math.Max(amount, 0)
+            : 0;
     }
 
     private static void AddApplyPowerEffect(
