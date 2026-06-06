@@ -25,7 +25,7 @@ internal static class AiTeammateCardSelectionPatches
             bool canSkip,
             ref Task<CardModel?> __result)
         {
-            if (!AiTeammateDummyController.IsAiPlayer(player))
+            if (!AiTeammateDummyController.IsAiTeammatePlayer(player))
             {
                 return true;
             }
@@ -45,7 +45,7 @@ internal static class AiTeammateCardSelectionPatches
             CardSelectorPrefs prefs,
             ref Task<IEnumerable<CardModel>> __result)
         {
-            if (!AiTeammateDummyController.IsAiPlayer(player))
+            if (!AiTeammateDummyController.IsAiTeammatePlayer(player))
             {
                 return true;
             }

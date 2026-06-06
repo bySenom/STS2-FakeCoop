@@ -52,8 +52,9 @@
 
 - Patch point: `NRun._Process` via `AiTeammatePeerInputPatches`.
 - Decision: `F4` toggles a host auto-mode controller that ticks the host player through the same `AiTeammateDummyController` decision path.
-- Reasoning: the user can hand control to the bot temporarily without changing party setup or adding a fake player. While enabled, `AiTeammateDummyController.IsAiPlayer` treats the host as AI-controlled so existing reward/card/relic selection patches also apply.
-- Verification: press `F4` during a run and confirm logs show host auto-mode enabled/disabled; then confirm the host can auto-play combat and auto-resolve reward choices.
+- Reasoning: the user can hand control to the bot temporarily without changing party setup or adding a fake player. Host auto-mode is intended for active automation such as combat, not for hiding human reward UI.
+- Reward UI policy: room-end card rewards and reward card-selection screens only auto-resolve for real AI teammates. The auto-mode host should still see the normal reward window, including larger card reward pools from other mods.
+- Verification: press `F4` during a run and confirm logs show host auto-mode enabled/disabled; then finish combat and confirm the host still sees card rewards while AI teammates resolve their own rewards deterministically.
 
 ## Build-Aware Combat Rotation
 

@@ -176,6 +176,12 @@ internal sealed partial class AiTeammateDummyController
                 AiTeammateHostAutoMode.IsAutoControlled(player));
     }
 
+    public static bool IsAiTeammatePlayer(Player? player)
+    {
+        return player != null &&
+               AiTeammateSessionRegistry.Current?.AiControllers.ContainsKey(player.NetId) == true;
+    }
+
     public static bool TryGetControllerFor(ulong playerId, out AiTeammateDummyController controller)
     {
         if (AiTeammateHostAutoMode.TryGetController(playerId, out controller))

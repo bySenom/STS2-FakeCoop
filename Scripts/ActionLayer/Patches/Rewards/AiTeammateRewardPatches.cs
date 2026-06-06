@@ -19,7 +19,7 @@ internal static class AiTeammateRewardPatches
     {
         private static bool Prefix(RewardsSet __instance, ref Task __result)
         {
-            if (!AiTeammateDummyController.IsAiPlayer(__instance.Player))
+            if (!AiTeammateDummyController.IsAiTeammatePlayer(__instance.Player))
             {
                 return true;
             }
@@ -103,7 +103,7 @@ internal static class AiTeammateRewardPatches
     {
         private static bool Prefix(CardReward __instance, ref Task<bool> __result)
         {
-            if (!AiTeammateDummyController.IsAiPlayer(__instance.Player))
+            if (!AiTeammateDummyController.IsAiTeammatePlayer(__instance.Player))
             {
                 return true;
             }
