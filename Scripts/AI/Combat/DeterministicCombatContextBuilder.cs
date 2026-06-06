@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Entities.Creatures;
@@ -42,6 +43,7 @@ internal sealed class DeterministicCombatContextBuilder
                 group => group.Key,
                 group => _cardResolver.Resolve(group.First(), group.Key),
                 StringComparer.Ordinal);
+        (int handEndTurnDamage, int handEndTurnHpLoss) = EstimateHandEndTurnThreats(handCardsByInstanceId.Values);
         List<ResolvedCardView> deckCards = player.Deck.Cards
             .Select((card, index) => _cardResolver.Resolve(card, $"deck_{index}_{card.Id.Entry.Replace(':', '_').Replace('/', '_').Replace(' ', '_')}"))
             .ToList();
@@ -84,7 +86,9 @@ internal sealed class DeterministicCombatContextBuilder
             RoomTypeName = roomTypeName,
             IsEliteCombat = roomTypeName.Contains("Elite", StringComparison.OrdinalIgnoreCase),
             IsBossCombat = roomTypeName.Contains("Boss", StringComparison.OrdinalIgnoreCase),
-            IncomingDamage = incomingDamage
+            IncomingDamage = incomingDamage,
+            HandEndTurnDamage = handEndTurnDamage,
+            HandEndTurnHpLoss = handEndTurnHpLoss
         };
     }
 
@@ -119,5 +123,89 @@ internal sealed class DeterministicCombatContextBuilder
         }
 
         return $"creature_{target.CombatId?.ToString() ?? target.Name.Replace(' ', '_')}";
+    }
+
+    private static (int Damage, int HpLoss) EstimateHandEndTurnThreats(IEnumerable<ResolvedCardView> handCards)
+    {
+        List<ResolvedCardView> cards = handCards.ToList();
+        int damage = 0;
+        int hpLoss = 0;
+        foreach (ResolvedCardView card in cards)
+        {
+            (int cardDamage, int cardHpLoss) = EstimateHandEndTurnThreat(card, cards.Count);
+            damage += cardDamage;
+            hpLoss += cardHpLoss;
+        }
+
+        return (damage, hpLoss);
+    }
+
+    private static (int Damage, int HpLoss) EstimateHandEndTurnThreat(ResolvedCardView card, int handCount)
+    {
+        string normalizedName = AiBuildProfileAnalyzer.Normalize(card.Name);
+        string normalizedId = AiBuildProfileAnalyzer.Normalize(card.CardId);
+        string description = card.Description ?? string.Empty;
+
+        int? textDamage = ExtractEndTurnDamage(description);
+        if (textDamage.HasValue)
+        {
+            return (textDamage.Value, 0);
+        }
+
+        int? textHpLoss = ExtractEndTurnHpLoss(description);
+        if (textHpLoss.HasValue)
+        {
+            return (0, textHpLoss.Value);
+        }
+
+        if (normalizedName.Contains("REGRET") || normalizedId.Contains("REGRET"))
+        {
+            return (0, Math.Max(1, handCount));
+        }
+
+        if (normalizedName.Contains("BURN") || normalizedId.Contains("BURN") ||
+            normalizedName.Contains("SCORCH") || normalizedId.Contains("SCORCH") ||
+            normalizedName.Contains("DECAY") || normalizedId.Contains("DECAY") ||
+            normalizedName.Contains("DISINTEGRATION") || normalizedId.Contains("DISINTEGRATION") ||
+            normalizedName.Contains("ROT") || normalizedId.Contains("ROT"))
+        {
+            return (5, 0);
+        }
+
+        if (normalizedName.Contains("BECKON") || normalizedId.Contains("BECKON"))
+        {
+            return (0, 6);
+        }
+
+        return (0, 0);
+    }
+
+    private static int? ExtractEndTurnDamage(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description) ||
+            !description.Contains("end", StringComparison.OrdinalIgnoreCase) ||
+            !description.Contains("turn", StringComparison.OrdinalIgnoreCase) ||
+            !description.Contains("damage", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        Match match = Regex.Match(description, @"\b(?<damage>\d+)\b");
+        return match.Success ? int.Parse(match.Groups["damage"].Value) : null;
+    }
+
+    private static int? ExtractEndTurnHpLoss(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description) ||
+            !description.Contains("end", StringComparison.OrdinalIgnoreCase) ||
+            !description.Contains("turn", StringComparison.OrdinalIgnoreCase) ||
+            !description.Contains("lose", StringComparison.OrdinalIgnoreCase) ||
+            !description.Contains("HP", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        Match match = Regex.Match(description, @"\b(?<hp>\d+)\b");
+        return match.Success ? int.Parse(match.Groups["hp"].Value) : null;
     }
 }

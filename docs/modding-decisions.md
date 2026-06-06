@@ -79,6 +79,7 @@
 ## Block Discipline
 
 - Patch points: `CombatActionScorer.Score` and `CombatTurnLinePlanner`.
-- Decision: pure block cards are treated as redundant once incoming damage is already covered, unless the actor can retain block.
-- Reasoning: playing extra block after full coverage wastes energy and actions that could be used for damage, scaling, or build setup.
-- Verification: with 5 incoming damage and enough current/planned block already available, the bot should stop playing additional pure block cards and prefer useful damage/setup or end turn.
+- Decision: pure block cards are treated as redundant once incoming damage is already covered, unless the actor can retain block or uses block as an offensive resource.
+- Reasoning: playing extra block after full coverage wastes energy and actions that could be used for damage, scaling, or build setup. Body Slam/Barricade-style decks are an exception because extra block can become damage.
+- Status-card policy: hand cards with `take X damage` at end of turn add blockable threat; cards with `lose X HP` add unavoidable life loss and should not cause overblocking.
+- Verification: with 5 incoming damage and enough current/planned block already available, the bot should stop playing additional pure block cards and prefer useful damage/setup or end turn. In Barricade/Body Slam decks, extra block may still be played before payoff.

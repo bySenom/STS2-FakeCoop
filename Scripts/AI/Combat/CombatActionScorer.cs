@@ -48,7 +48,7 @@ internal sealed class CombatActionScorer
 
         if (IsRedundantBlockOnly(context, card))
         {
-            Log.Debug($"[AITeammate] Semantic score blocked redundant block-only actionId={action.ActionId} card={card.CardId} incoming={context.IncomingDamage} currentBlock={context.CurrentBlock}.");
+            Log.Debug($"[AITeammate] Semantic score blocked redundant block-only actionId={action.ActionId} card={card.CardId} incoming={context.IncomingDamage} handDamage={context.HandEndTurnDamage} handHpLoss={context.HandEndTurnHpLoss} currentBlock={context.CurrentBlock}.");
             return new CombatActionScore
             {
                 ActionId = action.ActionId,
@@ -148,7 +148,7 @@ internal sealed class CombatActionScorer
         }
 
         int score = damage * core.DirectDamageValuePerPoint;
-        int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock);
+        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock);
         if (uncoveredDamage > 0 && HasPlayableBlockAction(context))
         {
             score -= core.AttackWhileDefenseNeededPenalty;
@@ -174,7 +174,7 @@ internal sealed class CombatActionScorer
     {
         AiCombatStatusWeights status = context.CombatConfig.Combat.StatusWeights;
         AiCombatRiskProfile risk = context.CombatConfig.Combat.RiskProfile;
-        int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock);
+        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock);
         int block = card.GetEstimatedBlock();
         int weakAmount = card.GetEnemyWeakAmount();
         int temporaryDexterity = card.GetSelfTemporaryDexterityAmount();
@@ -187,7 +187,7 @@ internal sealed class CombatActionScorer
         {
             score += blockedDamage * risk.BlockedDamageValuePerPoint;
             int excessBlock = Math.Max(0, block - uncoveredDamage);
-            score += context.HasBlockRetention
+            score += context.ValuesExcessBlock
                 ? excessBlock * risk.ExcessBlockValuePerPoint
                 : -(excessBlock * Math.Max(2, risk.ExcessBlockValuePerPoint + 2));
             if (uncoveredDamage > 0 && block >= uncoveredDamage)
@@ -217,7 +217,7 @@ internal sealed class CombatActionScorer
             score += dexterity * futureBlockValue;
         }
 
-        if (context.CurrentHp <= Math.Max(12, context.IncomingDamage))
+        if (context.CurrentHp <= Math.Max(12, context.TotalExpectedEndTurnLifeLoss))
         {
             score += risk.LowHealthEmergencyDefenseBonus;
         }
@@ -333,7 +333,7 @@ internal sealed class CombatActionScorer
     private static int ScoreUtility(DeterministicCombatContext context, AiLegalActionOption action)
     {
         AiCombatCoreWeights core = context.CombatConfig.Combat.CoreWeights;
-        int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock);
+        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock);
         int score = uncoveredDamage > 0 ? core.UtilityValueWhenThreatened : core.UtilityValueWhenSafe;
         score += ScoreEnergyEfficiency(context, action, null);
         return score;
@@ -598,7 +598,7 @@ internal sealed class CombatActionScorer
 
     private static bool IsGraveDanger(DeterministicCombatContext context)
     {
-        int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock);
+        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock) + context.HandEndTurnHpLoss;
         return uncoveredDamage >= Math.Max(10, context.CurrentHp / 3) || uncoveredDamage >= context.CurrentHp;
     }
 
@@ -622,7 +622,7 @@ internal sealed class CombatActionScorer
 
     private static bool IsRedundantBlockOnly(DeterministicCombatContext context, ResolvedCardView card)
     {
-        if (context.HasBlockRetention || Math.Max(0, context.IncomingDamage - context.CurrentBlock) > 0)
+        if (context.ValuesExcessBlock || Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock) > 0)
         {
             return false;
         }

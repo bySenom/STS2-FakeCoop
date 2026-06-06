@@ -99,6 +99,7 @@ internal sealed class CardResolver : ICardResolver
             CardInstanceId = cardInstanceId,
             CardId = entry.CardId,
             Name = entry.Name,
+            Description = isUpgraded && !string.IsNullOrWhiteSpace(entry.UpgradeDescriptionPreview) ? entry.UpgradeDescriptionPreview : entry.BaseDescription,
             Type = entry.Type,
             Targeting = entry.TargetType,
             EffectiveCost = effectiveCost,
@@ -156,6 +157,7 @@ internal sealed class CardResolver : ICardResolver
             CardInstanceId = cardInstanceId,
             CardId = definition.CardId,
             Name = definition.Name,
+            Description = definition.Description,
             Type = definition.Type,
             Targeting = definition.Targeting,
             EffectiveCost = effectiveCost,
@@ -298,6 +300,7 @@ internal sealed class CardResolver : ICardResolver
         {
             CardId = liveCard.Id.Entry,
             Name = GetStringProperty(liveCard, "Name", "DisplayName") ?? liveCard.Title,
+            Description = liveCard.Description.GetFormattedText(),
             Type = liveCard.Type,
             Targeting = liveCard.TargetType,
             BaseCost = Math.Max(0, liveCard.EnergyCost.GetAmountToSpend()),

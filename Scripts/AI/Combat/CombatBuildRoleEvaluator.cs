@@ -121,6 +121,7 @@ internal static class CombatBuildRoleEvaluator
         return buildId switch
         {
             "strength" => HasToken(card, "HEAVYBLADE", "SWORD", "TWIN", "POMMEL", "WHIRLWIND", "BLUDGEON"),
+            "barricade" => HasToken(card, "BODYSLAM"),
             "strike" => HasToken(card, "STRIKE", "PERFECTED"),
             "shiv" or "envenom" => HasToken(card, "BLADE", "SHIV", "FINISHER", "FANO"),
             "claw" => HasToken(card, "CLAW", "ALLFORONE", "SCRAPE"),

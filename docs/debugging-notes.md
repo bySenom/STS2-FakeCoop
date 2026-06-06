@@ -87,5 +87,7 @@
 
 - Enter combat where enemies deal low incoming damage, such as 5.
 - Give the bot at least two pure block cards and one useful damage/setup card.
-- Expected result: after incoming damage is covered, the bot should not spend another action on pure block unless it has block retention.
+- Expected result: after incoming damage is covered, the bot should not spend another action on pure block unless it has block retention or a Body Slam/Barricade-style plan.
 - Check logs for `blocked redundant block-only` when a redundant block action is scored.
+- Add `Burn`, `Disintegration`, or similar `take X damage` status cards to hand and confirm the bot blocks that extra damage.
+- Add `Beckon` or similar `lose X HP` status cards and confirm it is counted as life risk but not treated as blockable damage.

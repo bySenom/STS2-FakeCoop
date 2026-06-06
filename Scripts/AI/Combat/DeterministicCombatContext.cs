@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Models;
@@ -38,6 +39,13 @@ internal sealed class DeterministicCombatContext
         ActorRelicIds.Contains("CALIPER") ||
         ActorPowerAmounts.ContainsKey("BARRICADE");
 
+    public bool UsesBlockAsResource =>
+        ActiveBuild?.Profile.BuildId == "barricade" ||
+        HandCardsByInstanceId.Values.Any(IsBodySlamCard) ||
+        DeckCards.Any(IsBodySlamCard);
+
+    public bool ValuesExcessBlock => HasBlockRetention || UsesBlockAsResource;
+
     public int CurrentHp => Actor.Creature.CurrentHp;
 
     public int CurrentBlock => Actor.Creature.Block;
@@ -45,6 +53,21 @@ internal sealed class DeterministicCombatContext
     public int Energy => Actor.PlayerCombatState?.Energy ?? 0;
 
     public int IncomingDamage { get; init; }
+
+    public int HandEndTurnDamage { get; init; }
+
+    public int HandEndTurnHpLoss { get; init; }
+
+    public int TotalBlockableIncomingDamage => IncomingDamage + HandEndTurnDamage;
+
+    public int TotalExpectedEndTurnLifeLoss => TotalBlockableIncomingDamage + HandEndTurnHpLoss;
+
+    private static bool IsBodySlamCard(ResolvedCardView card)
+    {
+        string normalizedName = AiBuildProfileAnalyzer.Normalize(card.Name);
+        string normalizedId = AiBuildProfileAnalyzer.Normalize(card.CardId);
+        return normalizedName.Contains("BODYSLAM") || normalizedId.Contains("BODYSLAM");
+    }
 }
 
 internal sealed class DeterministicEnemyState

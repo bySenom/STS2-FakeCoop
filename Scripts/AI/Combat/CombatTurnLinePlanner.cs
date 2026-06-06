@@ -222,12 +222,12 @@ internal sealed class CombatTurnLinePlanner
         int damagePreventedByKills,
         int damagePreventedByWeak)
     {
-        if (context.HasBlockRetention || !action.IsBlockOnlyDefense || !IsAffordableActionAtEnergy(action, energyRemaining))
+        if (context.ValuesExcessBlock || !action.IsBlockOnlyDefense || !IsAffordableActionAtEnergy(action, energyRemaining))
         {
             return false;
         }
 
-        int incomingDamage = Math.Max(0, context.IncomingDamage - damagePreventedByKills - damagePreventedByWeak);
+        int incomingDamage = GetBlockableIncomingDamage(context, damagePreventedByKills, damagePreventedByWeak);
         int uncoveredDamage = Math.Max(0, incomingDamage - context.CurrentBlock - totalBlockGained);
         return uncoveredDamage <= 0;
     }
@@ -241,14 +241,30 @@ internal sealed class CombatTurnLinePlanner
         int damagePreventedByWeak)
     {
         ResolvedCardView? card = ResolveCard(context, action);
-        if (context.HasBlockRetention || !IsBlockOnlyDefense(card) || !IsAffordableAtEnergy(context, action, energyRemaining))
+        if (context.ValuesExcessBlock || !IsBlockOnlyDefense(card) || !IsAffordableAtEnergy(context, action, energyRemaining))
         {
             return false;
         }
 
-        int incomingDamage = Math.Max(0, context.IncomingDamage - damagePreventedByKills - damagePreventedByWeak);
+        int incomingDamage = GetBlockableIncomingDamage(context, damagePreventedByKills, damagePreventedByWeak);
         int uncoveredDamage = Math.Max(0, incomingDamage - context.CurrentBlock - totalBlockGained);
         return uncoveredDamage <= 0;
+    }
+
+    private static int GetBlockableIncomingDamage(DeterministicCombatContext context, int damagePreventedByKills, int damagePreventedByWeak)
+    {
+        return Math.Max(0, context.IncomingDamage - damagePreventedByKills - damagePreventedByWeak) + context.HandEndTurnDamage;
+    }
+
+    private static int GetExpectedLifeLoss(
+        DeterministicCombatContext context,
+        int totalBlockGained,
+        int damagePreventedByKills,
+        int damagePreventedByWeak)
+    {
+        int blockableIncoming = GetBlockableIncomingDamage(context, damagePreventedByKills, damagePreventedByWeak);
+        int availableBlock = context.CurrentBlock + totalBlockGained;
+        return Math.Max(0, blockableIncoming - availableBlock) + context.HandEndTurnHpLoss;
     }
 
 
@@ -440,11 +456,11 @@ internal sealed class CombatTurnLinePlanner
             int effectiveBlock = action.Block + next.DexterityGained + next.TemporaryDexterityGained;
             if (effectiveBlock > 0)
             {
-                int incomingBeforeBlock = Math.Max(0, context.IncomingDamage - DamagePreventedByKills - DamagePreventedByWeak);
+                int incomingBeforeBlock = GetBlockableIncomingDamage(context, DamagePreventedByKills, DamagePreventedByWeak);
                 int uncoveredBeforeBlock = Math.Max(0, incomingBeforeBlock - context.CurrentBlock - TotalBlockGained);
                 int excessBlock = Math.Max(0, effectiveBlock - uncoveredBeforeBlock);
                 next.TotalBlockGained += effectiveBlock;
-                if (!context.HasBlockRetention && excessBlock > 0)
+                if (!context.ValuesExcessBlock && excessBlock > 0)
                 {
                     next.SetupScore -= excessBlock * ExcessBlockTempoPenaltyPerPoint;
                 }
@@ -564,7 +580,7 @@ internal sealed class CombatTurnLinePlanner
                     score += TotalDamageDealt > 0 || hasSetup ? 10 : 2;
                     break;
                 case CombatBuildRole.Defense:
-                    int uncoveredDamage = Math.Max(0, context.IncomingDamage - context.CurrentBlock - TotalBlockGained);
+                    int uncoveredDamage = Math.Max(0, GetBlockableIncomingDamage(context, DamagePreventedByKills, DamagePreventedByWeak) - context.CurrentBlock - TotalBlockGained);
                     score += uncoveredDamage > 0 ? 12 : 2;
                     break;
                 case CombatBuildRole.Avoid:
@@ -613,14 +629,12 @@ internal sealed class CombatTurnLinePlanner
 
         public int EstimatedDamageTaken(DeterministicCombatContext context)
         {
-            int incomingDamage = Math.Max(0, context.IncomingDamage - DamagePreventedByKills - DamagePreventedByWeak);
-            int availableBlock = context.CurrentBlock + TotalBlockGained;
-            return Math.Max(0, incomingDamage - availableBlock);
+            return GetExpectedLifeLoss(context, TotalBlockGained, DamagePreventedByKills, DamagePreventedByWeak);
         }
 
         public int EstimatedBlockAfterEnemyTurn(DeterministicCombatContext context)
         {
-            int incomingDamage = Math.Max(0, context.IncomingDamage - DamagePreventedByKills - DamagePreventedByWeak);
+            int incomingDamage = GetBlockableIncomingDamage(context, DamagePreventedByKills, DamagePreventedByWeak);
             int leftoverBlock = Math.Max(0, context.CurrentBlock + TotalBlockGained - incomingDamage);
             return context.HasBlockRetention ? leftoverBlock : 0;
         }
@@ -632,9 +646,9 @@ internal sealed class CombatTurnLinePlanner
             AiCombatStatusWeights status = tuning.StatusWeights;
             AiCombatResourceWeights resource = tuning.ResourceWeights;
             AiCombatRiskProfile risk = tuning.RiskProfile;
-            int incomingDamage = Math.Max(0, context.IncomingDamage - DamagePreventedByKills - DamagePreventedByWeak);
+            int incomingDamage = GetBlockableIncomingDamage(context, DamagePreventedByKills, DamagePreventedByWeak);
             int availableBlock = context.CurrentBlock + TotalBlockGained;
-            int damageTaken = Math.Max(0, incomingDamage - availableBlock);
+            int damageTaken = Math.Max(0, incomingDamage - availableBlock) + context.HandEndTurnHpLoss;
             int preventedByBlock = Math.Min(incomingDamage, availableBlock);
             int leftoverBlock = EstimatedBlockAfterEnemyTurn(context);
             int remainingAffordableActions = actions.Count(action =>
