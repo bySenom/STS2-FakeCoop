@@ -19,7 +19,7 @@ internal static class AiTeammateRelicSelectionPatches
                 return true;
             }
 
-            __result = Task.FromResult(AiTeammateDummyController.ChooseFirstRelic(relics));
+            __result = Task.FromResult(AiTeammateDummyController.ChooseBestRelic(player, relics));
             return false;
         }
     }

@@ -14,3 +14,43 @@
 - Decision: route AI combat-pile prompts through the existing deterministic card selector.
 - Reasoning: cards such as `NeowsFury` play normally, then ask the player to choose cards from a combat pile. Without this patch, AI players can stall on that follow-up selection.
 - Verification: play `NeowsFury` as an AI teammate while discard pile cards are available and confirm the selection resolves automatically.
+
+## Build-Aware Card Rewards
+
+- Patch point: `CardChoiceEvaluator.EvaluateCard`.
+- Decision: add an `AiBuildPreferenceEvaluator` layer on top of the existing intrinsic/deck-needs card scoring, backed by richer `AiBuildArchetype` profiles.
+- Reasoning: the bot should farm toward a coherent archetype instead of only taking generally strong cards. The profiles use the current build list from `https://slaythespire-2.com/builds` and choose the best-fitting build from current deck evidence.
+- S-tier policy: S-tier profiles get stronger opener/tiebreaker bonuses, but the bot only treats a build as locked once the deck has enough core/evidence. Before a lock, A/B-tier cards can still be selected if no S-tier direction is coming together.
+- Need policy: missing core cards get a stronger bonus, while non-core cards are penalized once the active profile deck is already above its desired size.
+- Rejected approach: hard-committing each character to a fixed build at run start. The build page itself recommends adapting to offered cards, so this version gives early core cards a signal bonus and allows pivots when a competing build becomes better supported.
+- Skip policy: once the deck has build evidence, optional reward/shop/choose-screen cards marked off-build must clear a higher effective threshold before the bot will take them.
+- Verification: start an AI teammate run, check card reward or shop-card logs, and confirm top-three card evaluation reasons can include `build +...` or skip reasons like `off_build`.
+
+## Relic Choice Heuristics
+
+- Patch point: `RelicSelectCmd.FromChooseARelicScreen`.
+- Decision: replace first-relic selection with `AiRelicChoiceEvaluator`.
+- Reasoning: relic choice should account for active build profiles first, then broad deck synergies such as Exhaust plus Dead Branch, attack-spam plus Shuriken/Kunai, orb evidence plus Inserter/Data Disk, high-cost decks plus Snecko, and starter Strike density plus Strike Dummy.
+- Verification: trigger a relic choice screen for an AI teammate and confirm logs show `[AITeammate] Relic evaluation rank`.
+
+## Rest Site Upgrade Support
+
+- Patch points: `AiTeammateDummyController.DiscoverRestSiteActions`, `CardSelectCmd.FromDeckForUpgrade`, and `CardSelectCmd.FromHandForUpgrade`.
+- Decision: prefer rest-site upgrades when the AI is healthy enough, and select upgrade targets with `CardUpgradeEvaluator`.
+- Reasoning: always healing wastes campfires, and first-card upgrade selection can upgrade bad or off-build cards. The upgrade scorer now combines upgrade deltas, build relevance, scaling bias, and off-build penalties.
+- Heal policy: missing a small amount of HP is not enough to heal. Healing is preferred only at meaningful low HP or when at least 24 HP is missing; otherwise the bot prefers upgrade or another non-heal option.
+- Verification: reach a rest site with an AI teammate above low-health thresholds and confirm logs show `[AITeammate][RestSite] Selected option ... upgrade` followed by `[AITeammate] Upgrade evaluation rank`.
+
+## Build-Aware Removal and Combat
+
+- Patch points: `ShopPlanner.SelectBestRemovalCandidate` and `CombatActionScorer.Score`.
+- Decision: protect active-profile core/support cards from removal, prioritize removing active-profile avoid/off-build cards, and add small in-combat bonuses for playing active-profile core/support cards.
+- Reasoning: strong decks are not only about picking good cards. They must also remove dilution and pilot their engine cards when drawn. Combat bonuses are intentionally smaller than survival/damage scores so the bot still blocks lethal damage.
+- Verification: visit a shop with removal available and check removal reasons for `core keep bias`, `support keep bias`, or `off-build removal bias`; in combat, debug semantic scores include `build=...`.
+
+## Host Auto-Mode
+
+- Patch point: `NRun._Process` via `AiTeammatePeerInputPatches`.
+- Decision: `F4` toggles a host auto-mode controller that ticks the host player through the same `AiTeammateDummyController` decision path.
+- Reasoning: the user can hand control to the bot temporarily without changing party setup or adding a fake player. While enabled, `AiTeammateDummyController.IsAiPlayer` treats the host as AI-controlled so existing reward/card/relic selection patches also apply.
+- Verification: press `F4` during a run and confirm logs show host auto-mode enabled/disabled; then confirm the host can auto-play combat and auto-resolve reward choices.

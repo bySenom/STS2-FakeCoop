@@ -24,6 +24,8 @@ internal sealed partial class AiTeammateDummyController
     private static readonly FieldInfo? CardRewardCardsField =
         typeof(CardReward).GetField("_cards", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly CardChoiceEvaluator CardEvaluator = new();
+    private static readonly AiRelicChoiceEvaluator RelicEvaluator = new();
+    private static readonly CardUpgradeEvaluator UpgradeEvaluator = new();
 
     public static async Task ExecuteDeterministicRewardSetAsync(RewardsSet rewardsSet)
     {
@@ -124,9 +126,35 @@ internal sealed partial class AiTeammateDummyController
         return selected;
     }
 
-    public static RelicModel? ChooseFirstRelic(IReadOnlyList<RelicModel> relics)
+    public static Task<IEnumerable<CardModel>> ChooseCardsForUpgradeAsync(
+        Player player,
+        IEnumerable<CardModel> options,
+        int minSelect,
+        int maxSelect)
     {
-        return relics.FirstOrDefault();
+        List<CardModel> list = options.Where(static card => card.IsUpgradable).ToList();
+        int desiredCount = ComputeSelectionCount(list.Count, minSelect, maxSelect);
+        CardUpgradeDecision decision = UpgradeEvaluator.Evaluate(player, list);
+        List<CardModel> selected = decision.SelectedCards.Take(desiredCount).ToList();
+        Log.Info($"[AITeammate] Upgrade evaluation player={player.NetId} options={list.Count} selected=[{string.Join(", ", selected.Select(static card => card.Id.Entry))}]");
+        foreach (CardUpgradeEvaluationResult result in decision.RankedResults.Take(5))
+        {
+            Log.Info($"[AITeammate] Upgrade evaluation rank player={player.NetId} {result.Describe()}");
+        }
+
+        return Task.FromResult<IEnumerable<CardModel>>(selected);
+    }
+
+    public static RelicModel? ChooseBestRelic(Player player, IReadOnlyList<RelicModel> relics)
+    {
+        AiRelicChoiceDecision decision = RelicEvaluator.Evaluate(player, relics);
+        Log.Info($"[AITeammate] Relic evaluation player={player.NetId} options={relics.Count} selected={decision.SelectedRelic?.Id.Entry ?? "none"}");
+        foreach (AiRelicEvaluationResult result in decision.RankedResults.Take(3))
+        {
+            Log.Info($"[AITeammate] Relic evaluation rank player={player.NetId} {result.Describe()}");
+        }
+
+        return decision.SelectedRelic;
     }
 
     public static IReadOnlyList<CardModel> ChooseFirstBundle(IReadOnlyList<IReadOnlyList<CardModel>> bundles)

@@ -31,6 +31,7 @@ internal static class AiTeammateRunManagerCleanUpPatch
             return;
         }
 
+        AiTeammateHostAutoMode.Reset();
         AiTeammateSaveSupport.ClearInMemorySessionIfNeeded();
     }
 }

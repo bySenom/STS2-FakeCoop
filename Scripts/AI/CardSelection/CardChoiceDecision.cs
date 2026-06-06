@@ -10,11 +10,14 @@ internal sealed class CardChoiceDecision
 
     public required bool ShouldTakeCard { get; init; }
 
+    public string? SkipReason { get; init; }
+
     public CardEvaluationResult? BestEvaluation => RankedResults.Count > 0 ? RankedResults[0] : null;
 
     public string Describe()
     {
         string best = BestEvaluation?.Describe() ?? "none";
-        return $"shouldTake={ShouldTakeCard} threshold={SkipThreshold:F1} best={best}";
+        string skipReason = string.IsNullOrWhiteSpace(SkipReason) ? string.Empty : $" skipReason={SkipReason}";
+        return $"shouldTake={ShouldTakeCard} threshold={SkipThreshold:F1}{skipReason} best={best}";
     }
 }

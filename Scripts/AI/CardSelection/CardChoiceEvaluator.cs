@@ -9,6 +9,7 @@ namespace AITeammate.Scripts;
 internal sealed class CardChoiceEvaluator
 {
     private readonly CardEvaluationContextFactory _contextFactory = new();
+    private readonly AiBuildPreferenceEvaluator _buildPreferenceEvaluator = new();
 
     public CardEvaluationContextFactory ContextFactory => _contextFactory;
 
@@ -24,13 +25,16 @@ internal sealed class CardChoiceEvaluator
             .ToList();
 
         double skipThreshold = GetSkipThreshold(context, tuning);
-        bool shouldTake = ranked.Count > 0 && (!context.SkipAllowed || ranked[0].FinalScore >= skipThreshold);
+        CardEvaluationResult? best = ranked.FirstOrDefault();
+        string? skipReason = GetSkipReason(best, context, skipThreshold);
+        bool shouldTake = best != null && (!context.SkipAllowed || skipReason == null);
 
         return new CardChoiceDecision
         {
             RankedResults = ranked,
             SkipThreshold = skipThreshold,
-            ShouldTakeCard = shouldTake
+            ShouldTakeCard = shouldTake,
+            SkipReason = skipReason
         };
     }
 
@@ -45,7 +49,8 @@ internal sealed class CardChoiceEvaluator
         double needs = ScoreDeckNeeds(card, features, context, tuning);
         double redundancy = ScoreRedundancy(card, features, context, tuning);
         double contextAdjustment = ScoreContext(card, features, context, tuning);
-        double final = intrinsic + deckFit + needs + contextAdjustment - redundancy;
+        AiBuildPreferenceResult buildPreference = _buildPreferenceEvaluator.Evaluate(card, context);
+        double final = intrinsic + deckFit + needs + contextAdjustment + buildPreference.Score - redundancy;
 
         List<string> reasons = [];
         if (intrinsic > 0)
@@ -73,6 +78,11 @@ internal sealed class CardChoiceEvaluator
             reasons.Add($"context {(contextAdjustment > 0 ? "+" : string.Empty)}{contextAdjustment:F1}");
         }
 
+        if (buildPreference.Score != 0)
+        {
+            reasons.Add($"build {(buildPreference.Score > 0 ? "+" : string.Empty)}{buildPreference.Score:F1}: {buildPreference.Reason}");
+        }
+
         return new CardEvaluationResult
         {
             CandidateCard = cardModel,
@@ -83,8 +93,37 @@ internal sealed class CardChoiceEvaluator
             NeedCoverageScore = needs,
             RedundancyPenalty = redundancy,
             ContextAdjustmentScore = contextAdjustment,
+            BuildPreferenceScore = buildPreference.Score,
+            IsOffBuild = buildPreference.IsOffBuild,
             Reasons = reasons
         };
+    }
+
+    private static string? GetSkipReason(CardEvaluationResult? best, CardEvaluationContext context, double skipThreshold)
+    {
+        if (best == null)
+        {
+            return "no_candidates";
+        }
+
+        if (!context.SkipAllowed || context.ChoiceSource == CardChoiceSource.ForcedChoice)
+        {
+            return null;
+        }
+
+        if (best.FinalScore < skipThreshold)
+        {
+            return $"below_threshold score={best.FinalScore:F1}";
+        }
+
+        if (best.IsOffBuild &&
+            context.ChoiceSource is CardChoiceSource.Reward or CardChoiceSource.Shop or CardChoiceSource.ChooseScreen &&
+            best.FinalScore < skipThreshold + 12d)
+        {
+            return $"off_build score={best.FinalScore:F1} required={(skipThreshold + 12d):F1}";
+        }
+
+        return null;
     }
 
     private static double ScoreIntrinsic(ResolvedCardView card, CardFeatureVector features, AiCardRewardTuning tuning)

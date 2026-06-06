@@ -197,6 +197,7 @@ internal sealed class ShopPlanner
             $"rarityBaseline={rarityBaseline:F1}",
             $"costPenalty={-(offer.Cost / tuning.RelicWeights.CostDivisor):F1}"
         ];
+        AddBuildProfileRelicScore(snapshot, relicId, reasons, ref totalScore);
 
         AddRelicPatternBonus("MEMBERSHIP", 18d, "membership discount scales future shops");
         AddRelicPatternBonus("COURIER", 15d, "courier discount and restock are premium");
@@ -269,6 +270,98 @@ internal sealed class ShopPlanner
                 reasons.Add($"{reason} +{scaledBonus:F1}");
             }
         }
+    }
+
+    private static void AddBuildProfileRelicScore(
+        ShopVisitState snapshot,
+        string relicId,
+        List<string> reasons,
+        ref double totalScore)
+    {
+        AiBuildArchetype? active = SelectActiveBuild(snapshot);
+        if (active == null)
+        {
+            return;
+        }
+
+        double multiplier = IsBuildLocked(active, snapshot.DeckEntries.Select(static card => card.ResolvedCard).ToList()) ? 1d : 0.55d;
+        if (MatchesAny(active.KeyRelics, relicId))
+        {
+            double bonus = 24d * multiplier;
+            totalScore += bonus;
+            reasons.Add($"{active.DisplayName} key relic +{bonus:F1}");
+        }
+
+        if (MatchesAny(active.GoodRelics, relicId))
+        {
+            double bonus = 12d * multiplier;
+            totalScore += bonus;
+            reasons.Add($"{active.DisplayName} good relic +{bonus:F1}");
+        }
+
+        if (MatchesAny(active.AvoidRelics, relicId))
+        {
+            double penalty = 18d * multiplier;
+            totalScore -= penalty;
+            reasons.Add($"{active.DisplayName} avoid relic -{penalty:F1}");
+        }
+    }
+
+    private static AiBuildArchetype? SelectActiveBuild(ShopVisitState snapshot)
+    {
+        List<ResolvedCardView> deckCards = snapshot.DeckEntries.Select(static card => card.ResolvedCard).ToList();
+        return AiBuildArchetypeCatalog.ForCharacter(AiCharacterCombatConfigLoader.LoadForPlayer(snapshot.Player).CharacterId)
+            .Select(profile => new
+            {
+                Profile = profile,
+                Score = ScoreProfile(profile, deckCards),
+                Locked = IsBuildLocked(profile, deckCards)
+            })
+            .Where(static candidate => candidate.Score > TierBonus(candidate.Profile.Tier))
+            .OrderByDescending(static candidate => candidate.Locked)
+            .ThenByDescending(static candidate => candidate.Score)
+            .ThenByDescending(static candidate => TierBonus(candidate.Profile.Tier))
+            .ThenBy(static candidate => candidate.Profile.DisplayName, StringComparer.Ordinal)
+            .Select(static candidate => candidate.Profile)
+            .FirstOrDefault();
+    }
+
+    private static bool IsBuildLocked(AiBuildArchetype profile, IReadOnlyList<ResolvedCardView> deckCards)
+    {
+        int coreMatches = deckCards.Count(card => MatchesAny(profile.CoreCards, card.CardId, card.Name));
+        return coreMatches >= profile.LockCoreCardCount || ScoreProfile(profile, deckCards) >= profile.LockEvidenceScore;
+    }
+
+    private static double ScoreProfile(AiBuildArchetype profile, IReadOnlyList<ResolvedCardView> deckCards)
+    {
+        int coreMatches = deckCards.Count(card => MatchesAny(profile.CoreCards, card.CardId, card.Name));
+        int supportMatches = deckCards.Count(card => MatchesAny(profile.SupportCards, card.CardId, card.Name));
+        int avoidMatches = deckCards.Count(card => MatchesAny(profile.AvoidCards, card.CardId, card.Name));
+        return TierBonus(profile.Tier) + (coreMatches * 14d) + (supportMatches * 6d) - (avoidMatches * 10d);
+    }
+
+    private static bool MatchesAny(IReadOnlyList<string> tokens, params string[] values)
+    {
+        return tokens.Any(token => values.Any(value => Normalize(value).Contains(Normalize(token), StringComparison.Ordinal)));
+    }
+
+    private static double TierBonus(AiBuildTier tier)
+    {
+        return tier switch
+        {
+            AiBuildTier.S => 10d,
+            AiBuildTier.A => 4d,
+            AiBuildTier.B => 2d,
+            _ => 0d
+        };
+    }
+
+    private static string Normalize(string value)
+    {
+        return new string(value
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToUpperInvariant)
+            .ToArray());
     }
 
     private ShopOfferEvaluation EvaluatePotionOffer(ShopVisitState snapshot, ShopOffer offer, AiShopTuning tuning)
@@ -490,6 +583,7 @@ internal sealed class ShopPlanner
             .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.Ordinal);
 
         List<ShopRemovalCandidate> candidates = [];
+        AiBuildProfileMatch? activeBuild = AiBuildProfileAnalyzer.SelectActiveProfile(snapshot.Player, snapshot.DeckCards);
         foreach (ShopDeckCard deckCard in snapshot.DeckEntries.Where(static card => card.IsRemovable))
         {
             double burden = 0d;
@@ -600,6 +694,11 @@ internal sealed class ShopPlanner
                 reasons.Add("zero-cost flexibility keep bias -2.0");
             }
 
+            if (activeBuild != null)
+            {
+                ApplyBuildRemovalAdjustment(activeBuild, snapshot, resolved, ref burden, reasons);
+            }
+
             candidates.Add(new ShopRemovalCandidate
             {
                 CardId = deckCard.CardId,
@@ -614,6 +713,45 @@ internal sealed class ShopPlanner
             .OrderByDescending(static candidate => candidate.BurdenScore)
             .ThenBy(candidate => candidate.Name, StringComparer.Ordinal)
             .FirstOrDefault();
+    }
+
+    private static void ApplyBuildRemovalAdjustment(
+        AiBuildProfileMatch activeBuild,
+        ShopVisitState snapshot,
+        ResolvedCardView card,
+        ref double burden,
+        List<string> reasons)
+    {
+        AiBuildArchetype profile = activeBuild.Profile;
+        if (AiBuildProfileAnalyzer.IsCoreCard(profile, card))
+        {
+            double keepBias = activeBuild.IsLocked ? 32d : 18d;
+            burden -= keepBias;
+            reasons.Add($"{profile.DisplayName} core keep bias -{keepBias:F1}");
+            return;
+        }
+
+        if (AiBuildProfileAnalyzer.IsSupportCard(profile, card))
+        {
+            double keepBias = activeBuild.IsLocked ? 16d : 8d;
+            burden -= keepBias;
+            reasons.Add($"{profile.DisplayName} support keep bias -{keepBias:F1}");
+            return;
+        }
+
+        if (AiBuildProfileAnalyzer.IsAvoidCard(profile, card))
+        {
+            double removeBias = activeBuild.IsLocked ? 28d : 14d;
+            burden += removeBias;
+            reasons.Add($"{profile.DisplayName} avoid-card removal bias +{removeBias:F1}");
+            return;
+        }
+
+        if (activeBuild.IsLocked && snapshot.DeckSummary.CardCount > profile.DesiredMaxDeckSize)
+        {
+            burden += 9d;
+            reasons.Add($"{profile.DisplayName} oversized deck off-build removal bias +9.0");
+        }
     }
 
     private void SearchPlans(

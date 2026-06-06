@@ -95,13 +95,17 @@ internal sealed partial class AiTeammateDummyController
     {
         RestSiteSynchronizer synchronizer = RunManager.Instance.RestSiteSynchronizer;
         IReadOnlyList<RestSiteOption> options = synchronizer.GetOptionsForPlayer(player);
-        RestSiteOption? preferredOption = options.FirstOrDefault(static option => option.OptionId == "HEAL") ?? options.FirstOrDefault();
+        Log.Info($"[AITeammate][RestSite] Options player={player.NetId} hp={player.Creature.CurrentHp}/{player.Creature.MaxHp} options=[{string.Join(", ", options.Select(static option => option.OptionId))}]");
+
+        RestSiteOption? preferredOption = SelectRestSiteOption(player, options, out string reason);
         if (preferredOption == null)
         {
+            Log.Info($"[AITeammate][RestSite] No available rest site option player={player.NetId}");
             return [];
         }
 
         int optionIndex = options.ToList().IndexOf(preferredOption);
+        Log.Info($"[AITeammate][RestSite] Selected option player={player.NetId} option={preferredOption.OptionId} index={optionIndex} reason={reason}");
         return
         [
             new AiTeammateAvailableAction(
@@ -111,14 +115,84 @@ internal sealed partial class AiTeammateDummyController
                     ActionType = AiTeammateActionKind.ChooseRestSiteOption.ToString(),
                     Description = $"Choose rest site option {preferredOption.OptionId}",
                     Label = $"Rest site option {preferredOption.OptionId}",
-                    Summary = $"Choose rest site option {preferredOption.OptionId}."
+                    Summary = $"Choose rest site option {preferredOption.OptionId}: {reason}."
                 },
                 async () =>
                 {
+                    Log.Info($"[AITeammate][RestSite] Executing option player={player.NetId} option={preferredOption.OptionId} index={optionIndex} reason={reason}");
                     await ChooseRestSiteOptionAsync(synchronizer, player, optionIndex);
                     return AiActionExecutionResult.Completed;
                 })
         ];
+    }
+
+    private static RestSiteOption? SelectRestSiteOption(
+        Player player,
+        IReadOnlyList<RestSiteOption> options,
+        out string reason)
+    {
+        if (options.Count == 0)
+        {
+            reason = "no options";
+            return null;
+        }
+
+        RestSiteOption? healOption = options.FirstOrDefault(IsHealOption);
+        RestSiteOption? upgradeOption = options.FirstOrDefault(IsUpgradeOption);
+        RestSiteOption? nonHealFallback = options.FirstOrDefault(static option => !IsHealOption(option));
+        bool hasUpgradableCards = player.Deck.Cards.Any(static card => card.IsUpgradable);
+        int missingHp = Math.Max(0, player.Creature.MaxHp - player.Creature.CurrentHp);
+        double hpRatio = player.Creature.MaxHp > 0
+            ? (double)player.Creature.CurrentHp / player.Creature.MaxHp
+            : 0d;
+        bool healIsUseful = missingHp >= 12;
+        bool shouldHeal = healIsUseful && (player.Creature.CurrentHp <= 18 || hpRatio <= 0.45d || missingHp >= 24);
+
+        if (shouldHeal && healOption != null)
+        {
+            reason = $"meaningful low hp {player.Creature.CurrentHp}/{player.Creature.MaxHp} missing={missingHp}";
+            return healOption;
+        }
+
+        if (upgradeOption != null && hasUpgradableCards)
+        {
+            reason = shouldHeal
+                ? "heal unavailable; upgrade best available fallback"
+                : $"prefer upgrade hp={player.Creature.CurrentHp}/{player.Creature.MaxHp} missing={missingHp}";
+            return upgradeOption;
+        }
+
+        if (nonHealFallback != null && (!healIsUseful || player.Creature.CurrentHp >= player.Creature.MaxHp))
+        {
+            reason = hasUpgradableCards
+                ? $"upgrade token unrecognized; prefer non-heal option={nonHealFallback.OptionId}"
+                : $"heal not useful missing={missingHp}; prefer non-heal option={nonHealFallback.OptionId}";
+            return nonHealFallback;
+        }
+
+        if (healOption != null)
+        {
+            reason = hasUpgradableCards
+                ? "upgrade unavailable or unrecognized; heal fallback"
+                : "no upgradable cards; heal fallback";
+            return healOption;
+        }
+
+        reason = "fallback first option";
+        return options.FirstOrDefault();
+    }
+
+    private static bool IsHealOption(RestSiteOption option)
+    {
+        return option.OptionId.Contains("HEAL", System.StringComparison.OrdinalIgnoreCase) ||
+               option.OptionId.Contains("REST", System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUpgradeOption(RestSiteOption option)
+    {
+        return option.OptionId.Contains("UPGRADE", System.StringComparison.OrdinalIgnoreCase) ||
+               option.OptionId.Contains("SMITH", System.StringComparison.OrdinalIgnoreCase) ||
+               option.OptionId.Contains("FORGE", System.StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildEventActionFingerprint(EventSynchronizer synchronizer, EventModel eventForPlayer)

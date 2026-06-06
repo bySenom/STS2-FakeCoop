@@ -29,6 +29,7 @@ internal static class AiTeammatePeerInputPatches
             }
 
             AiTeammatePeerInputStateSync.EnsureAiPeerInputStates(session);
+            AiTeammateHostAutoMode.Tick(session);
 
             foreach (AiTeammateDummyController controller in session.AiControllers.Values)
             {

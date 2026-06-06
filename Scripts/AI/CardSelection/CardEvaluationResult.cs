@@ -21,10 +21,14 @@ internal sealed class CardEvaluationResult
 
     public double ContextAdjustmentScore { get; init; }
 
+    public double BuildPreferenceScore { get; init; }
+
+    public bool IsOffBuild { get; init; }
+
     public IReadOnlyList<string> Reasons { get; init; } = [];
 
     public string Describe()
     {
-        return $"{Candidate.CardId} score={FinalScore:F1} intrinsic={IntrinsicScore:F1} fit={DeckFitScore:F1} needs={NeedCoverageScore:F1} redundancy={RedundancyPenalty:F1} context={ContextAdjustmentScore:F1}";
+        return $"{Candidate.CardId} score={FinalScore:F1} intrinsic={IntrinsicScore:F1} fit={DeckFitScore:F1} needs={NeedCoverageScore:F1} redundancy={RedundancyPenalty:F1} context={ContextAdjustmentScore:F1} build={BuildPreferenceScore:F1} offBuild={IsOffBuild}";
     }
 }

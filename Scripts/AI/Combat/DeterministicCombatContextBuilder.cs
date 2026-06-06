@@ -42,6 +42,9 @@ internal sealed class DeterministicCombatContextBuilder
                 group => group.Key,
                 group => _cardResolver.Resolve(group.First(), group.Key),
                 StringComparer.Ordinal);
+        List<ResolvedCardView> deckCards = player.Deck.Cards
+            .Select((card, index) => _cardResolver.Resolve(card, $"deck_{index}_{card.Id.Entry.Replace(':', '_').Replace('/', '_').Replace(' ', '_')}"))
+            .ToList();
 
         Dictionary<string, DeterministicEnemyState> enemiesById = new(StringComparer.Ordinal);
         int incomingDamage = 0;
@@ -72,9 +75,11 @@ internal sealed class DeterministicCombatContextBuilder
             Actor = player,
             LegalActions = legalActions,
             HandCardsByInstanceId = handCardsByInstanceId,
+            DeckCards = deckCards,
             EnemiesById = enemiesById,
             ActorPowerAmounts = actorPowerAmounts,
             ActorRelicIds = actorRelicIds,
+            ActiveBuild = AiBuildProfileAnalyzer.SelectActiveProfile(player, deckCards),
             CombatConfig = AiCharacterCombatConfigLoader.LoadForPlayer(player),
             RoomTypeName = roomTypeName,
             IsEliteCombat = roomTypeName.Contains("Elite", StringComparison.OrdinalIgnoreCase),

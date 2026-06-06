@@ -50,17 +50,19 @@ internal sealed class CombatActionScorer
         int selfBuffScore = ScoreSelfBuff(context, action, card);
         int resourceSetupScore = ScoreResourceSetup(context, action, card);
         int killPotentialScore = ScoreKillPotential(context, action, card);
+        int buildCombatFitScore = ScoreBuildCombatFit(context, card);
         int totalScore = risk.ApplyAttackWeight(immediateDamageScore) +
                          risk.ApplyDefenseWeight(immediateDefenseScore) +
                          enemyDebuffScore +
                          selfBuffScore +
                          resourceSetupScore +
                          killPotentialScore +
-                         ScoreEnergyEfficiency(context, action);
+                         ScoreEnergyEfficiency(context, action) +
+                         buildCombatFitScore;
 
         CombatActionCategory category = Classify(card, immediateDamageScore, immediateDefenseScore, selfBuffScore, resourceSetupScore);
         Log.Debug(
-            $"[AITeammate] Semantic score actionId={action.ActionId} category={category} damage={immediateDamageScore} defense={immediateDefenseScore} debuff={enemyDebuffScore} buff={selfBuffScore} setup={resourceSetupScore} kill={killPotentialScore} total={totalScore}");
+            $"[AITeammate] Semantic score actionId={action.ActionId} category={category} damage={immediateDamageScore} defense={immediateDefenseScore} debuff={enemyDebuffScore} buff={selfBuffScore} setup={resourceSetupScore} kill={killPotentialScore} build={buildCombatFitScore} total={totalScore}");
 
         return new CombatActionScore
         {
@@ -355,6 +357,37 @@ internal sealed class CombatActionScorer
             {
                 score -= potionUse.LowHealthTargetPenalty;
             }
+        }
+
+        return score;
+    }
+
+    private static int ScoreBuildCombatFit(DeterministicCombatContext context, ResolvedCardView card)
+    {
+        AiBuildProfileMatch? active = context.ActiveBuild;
+        if (active == null || active.EvidenceCards <= 0)
+        {
+            return 0;
+        }
+
+        int score = 0;
+        AiBuildArchetype profile = active.Profile;
+        if (AiBuildProfileAnalyzer.IsCoreCard(profile, card))
+        {
+            score += active.IsLocked ? 18 : 10;
+        }
+        else if (AiBuildProfileAnalyzer.IsSupportCard(profile, card))
+        {
+            score += active.IsLocked ? 8 : 4;
+        }
+        else if (AiBuildProfileAnalyzer.IsAvoidCard(profile, card))
+        {
+            score -= active.IsLocked ? 18 : 8;
+        }
+
+        if (active.IsLocked && card.Type == CardType.Power && (AiBuildProfileAnalyzer.IsCoreCard(profile, card) || AiBuildProfileAnalyzer.IsSupportCard(profile, card)))
+        {
+            score += context.IsEliteOrBossCombat ? 8 : 4;
         }
 
         return score;

@@ -13,11 +13,15 @@ internal sealed class DeterministicCombatContext
 
     public required Dictionary<string, ResolvedCardView> HandCardsByInstanceId { get; init; }
 
+    public required IReadOnlyList<ResolvedCardView> DeckCards { get; init; }
+
     public required Dictionary<string, DeterministicEnemyState> EnemiesById { get; init; }
 
     public required Dictionary<string, int> ActorPowerAmounts { get; init; }
 
     public required HashSet<string> ActorRelicIds { get; init; }
+
+    public AiBuildProfileMatch? ActiveBuild { get; init; }
 
     public required AiCharacterCombatConfig CombatConfig { get; init; }
 

@@ -145,7 +145,7 @@ internal static class AiTeammateCardSelectionPatches
             }
 
             IEnumerable<CardModel> options = PileType.Deck.GetPile(player).Cards.Where(static card => card.IsUpgradable);
-            __result = AiTeammateDummyController.ChooseDeterministicCardsAsync(null, options, prefs.MinSelect, prefs.MaxSelect);
+            __result = AiTeammateDummyController.ChooseCardsForUpgradeAsync(player, options, prefs.MinSelect, prefs.MaxSelect);
             return false;
         }
     }
@@ -281,12 +281,11 @@ internal static class AiTeammateCardSelectionPatches
 
         private static async Task<CardModel?> ChooseHandUpgradeAsync(PlayerChoiceContext context, Player player)
         {
-            IEnumerable<CardModel> selected = await AiTeammateDummyController.ChooseDeterministicCardsAsync(
-                context,
+            IEnumerable<CardModel> selected = await AiTeammateDummyController.ChooseCardsForUpgradeAsync(
+                player,
                 PileType.Hand.GetPile(player).Cards.Where(static card => card.IsUpgradable),
                 1,
-                1,
-                PlayerChoiceOptions.CancelPlayCardActions);
+                1);
             return selected.FirstOrDefault();
         }
     }
