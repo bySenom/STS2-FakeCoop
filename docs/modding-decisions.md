@@ -110,3 +110,11 @@
 - Reasoning: teammates act close together and can otherwise waste multiple attacks on an enemy that is already about to die. Reserving pending damage lets the next bot see the target as effectively lower HP or already covered.
 - Scoring policy: targets already covered by pending teammate damage receive a strong penalty, and targeted overkill is penalized. Combat line damage is capped to remaining useful HP after pending teammate damage.
 - Verification: in a multi-enemy fight, if one bot queues lethal damage on a low-HP enemy, later bots should prefer another enemy or non-attack action instead of piling more attacks into the same target.
+
+## Enemy-Aware Targeting and AoE
+
+- Patch points: `DeterministicCombatContextBuilder`, `CombatActionScorer`, and `CombatTurnLinePlanner`.
+- Decision: enemy states now include a lightweight threat score from incoming damage and recognizable intent names, and all-enemy damage is scored/simulated across every living enemy.
+- Reasoning: strong combat play needs to know which enemy matters, not only which enemy has low HP. AoE cards were also undervalued when their damage was counted as only one target.
+- Targeting policy: single-target attacks get extra value against high-threat enemies, while AoE gets useful-damage, likely-kill, attacking-target, and multi-target bonuses.
+- Verification: in a multi-enemy fight, AoE cards should score higher when multiple targets are alive, and single-target attacks should prefer high incoming/scaling/status enemies over harmless low-priority targets when lethal is not decisive.

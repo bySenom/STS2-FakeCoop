@@ -55,11 +55,14 @@ internal sealed class DeterministicCombatContextBuilder
         {
             int enemyDamage = EstimateIncomingDamage(enemy, player.Creature);
             string enemyId = GetTargetId(enemy);
+            string intentSummary = BuildIntentSummary(enemy);
             enemiesById[enemyId] = new DeterministicEnemyState
             {
                 Id = enemyId,
                 Creature = enemy,
-                IncomingDamage = enemyDamage
+                IncomingDamage = enemyDamage,
+                ThreatScore = EstimateThreatScore(enemy, enemyDamage, intentSummary),
+                IntentSummary = intentSummary
             };
             incomingDamage += enemyDamage;
         }
@@ -108,6 +111,62 @@ internal sealed class DeterministicCombatContextBuilder
         }
 
         return Math.Max(total, 0);
+    }
+
+    private static string BuildIntentSummary(Creature enemy)
+    {
+        if (enemy.Monster?.NextMove?.Intents == null)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            ",",
+            enemy.Monster.NextMove.Intents.Select(static intent => intent.GetType().Name.ToUpperInvariant()));
+    }
+
+    private static int EstimateThreatScore(Creature enemy, int incomingDamage, string intentSummary)
+    {
+        int score = incomingDamage;
+        string name = enemy.Name?.ToUpperInvariant() ?? string.Empty;
+        string combined = $"{name},{intentSummary}";
+
+        if (incomingDamage > 0)
+        {
+            score += Math.Min(incomingDamage, 18);
+        }
+
+        if (ContainsAny(combined, "BUFF", "POWER", "STRENGTH", "RITUAL", "GROW", "ENRAGE", "SCALE"))
+        {
+            score += 18;
+        }
+
+        if (ContainsAny(combined, "DEBUFF", "STATUS", "WOUND", "DAZED", "BURN", "SLIME", "CURSE", "HEX"))
+        {
+            score += 14;
+        }
+
+        if (ContainsAny(combined, "SUMMON", "SPAWN", "MINION"))
+        {
+            score += 12;
+        }
+
+        if (ContainsAny(combined, "BLOCK", "DEFEND", "SHIELD"))
+        {
+            score += 6;
+        }
+
+        if (enemy.CurrentHp <= 12)
+        {
+            score += 4;
+        }
+
+        return Math.Max(score, 0);
+    }
+
+    private static bool ContainsAny(string value, params string[] needles)
+    {
+        return needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string GetCardInstanceId(CardModel card)

@@ -85,4 +85,8 @@ internal sealed class DeterministicEnemyState
     public int IncomingDamage { get; init; }
 
     public bool IsAttacking => IncomingDamage > 0;
+
+    public required int ThreatScore { get; init; }
+
+    public required string IntentSummary { get; init; }
 }

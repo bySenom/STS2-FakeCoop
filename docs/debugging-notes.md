@@ -121,3 +121,11 @@
 - Put one enemy at low HP and leave another target alive.
 - Expected result: after the first bot queues lethal damage on the low-HP enemy, later bots should avoid overkilling that same enemy when they have another useful target.
 - Check logs for `reserved team damage` and compare later `Combat score`/`Combat line` target choices.
+
+## Enemy-Aware Targeting and AoE Check
+
+- Enter a multi-enemy combat with at least two living enemies.
+- Give the bot an all-enemy damage card such as `Sweeping Beam` or another AoE card.
+- Expected result: AoE card scores should rise when multiple enemies are alive and should count useful damage/kills across enemies.
+- Give one enemy high incoming damage or a recognizable scaling/status/summon-style intent.
+- Expected result: single-target attacks should prefer that high-threat enemy unless another target is clearly lethal or already reserved by teammate damage.

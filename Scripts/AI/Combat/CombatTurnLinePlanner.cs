@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MegaCrit.Sts2.Core.Entities.Cards;
 
 namespace AITeammate.Scripts;
 
@@ -96,6 +97,7 @@ internal sealed class CombatTurnLinePlanner
         int block = card.GetEstimatedBlock();
         int cardsDrawn = card.GetCardsDrawn();
         int energyGain = Math.Max(card.GetEnergyGain(), 0);
+        bool isAllEnemiesDamage = IsAllEnemiesDamage(card);
         int vulnerable = card.GetEnemyVulnerableAmount();
         int weak = card.GetEnemyWeakAmount();
         int selfStrength = card.GetSelfStrengthAmount();
@@ -126,6 +128,7 @@ internal sealed class CombatTurnLinePlanner
             EnergyCost = action.EnergyCost ?? 0,
             Damage = damage,
             DamageHits = Math.Max(GetDamageHits(card), 1),
+            IsAllEnemiesDamage = isAllEnemiesDamage,
             Block = block,
             CardsDrawn = cardsDrawn,
             EnergyGain = energyGain,
@@ -180,6 +183,12 @@ internal sealed class CombatTurnLinePlanner
         return card.Effects
             .Where(static effect => effect.Kind == EffectKind.DealDamage)
             .Sum(static effect => Math.Max(effect.RepeatCount, 1));
+    }
+
+    private static bool IsAllEnemiesDamage(ResolvedCardView? card)
+    {
+        return card?.Targeting == TargetType.AllEnemies ||
+               card?.Effects.Any(static effect => effect.Kind == EffectKind.DealDamage && effect.TargetScope == TargetScope.AllEnemies) == true;
     }
 
     private static string BuildConsumptionKey(AiLegalActionOption action)
@@ -305,6 +314,8 @@ internal sealed class CombatTurnLinePlanner
         public int Damage { get; init; }
 
         public int DamageHits { get; init; }
+
+        public bool IsAllEnemiesDamage { get; init; }
 
         public int Block { get; init; }
 
@@ -494,7 +505,34 @@ internal sealed class CombatTurnLinePlanner
                 }
             }
 
-            if (action.Damage > 0 && !string.IsNullOrEmpty(action.Action.TargetId))
+            if (action.Damage > 0 && action.IsAllEnemiesDamage)
+            {
+                foreach (KeyValuePair<string, DeterministicEnemyState> enemyEntry in context.EnemiesById)
+                {
+                    if (next._deadEnemyIds.Contains(enemyEntry.Key))
+                    {
+                        continue;
+                    }
+
+                    int dealtDamage = action.Damage + (next.StrengthGained + next.TemporaryStrengthGained) * action.DamageHits;
+                    if (next._vulnerableTargets.Contains(enemyEntry.Key))
+                    {
+                        dealtDamage += (int)Math.Ceiling(dealtDamage * 0.5m);
+                    }
+
+                    int effectiveEnemyHp = GetTeamAdjustedEnemyHp(context, enemyEntry.Key, enemyEntry.Value);
+                    int damageBefore = next._damageByTargetId.GetValueOrDefault(enemyEntry.Key);
+                    int remainingEnemyHp = Math.Max(0, effectiveEnemyHp - damageBefore);
+                    next.TotalDamageDealt += Math.Min(dealtDamage, remainingEnemyHp);
+                    next._damageByTargetId[enemyEntry.Key] = damageBefore + dealtDamage;
+                    if (next._damageByTargetId[enemyEntry.Key] >= effectiveEnemyHp && effectiveEnemyHp > 0)
+                    {
+                        next._deadEnemyIds.Add(enemyEntry.Key);
+                        next.DamagePreventedByKills += enemyEntry.Value.IncomingDamage;
+                    }
+                }
+            }
+            else if (action.Damage > 0 && !string.IsNullOrEmpty(action.Action.TargetId))
             {
                 int dealtDamage = action.Damage + (next.StrengthGained + next.TemporaryStrengthGained) * action.DamageHits;
                 if (next._vulnerableTargets.Contains(action.Action.TargetId))

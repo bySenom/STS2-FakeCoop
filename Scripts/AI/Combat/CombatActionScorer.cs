@@ -149,11 +149,19 @@ internal sealed class CombatActionScorer
             return 0;
         }
 
-        int score = damage * core.DirectDamageValuePerPoint;
+        bool isAllEnemiesDamage = IsAllEnemiesDamage(card);
+        int usefulDamage = isAllEnemiesDamage ? EstimateAllEnemiesUsefulDamage(context, damage) : damage;
+        int score = usefulDamage * core.DirectDamageValuePerPoint;
         int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock);
         if (uncoveredDamage > 0 && HasPlayableBlockAction(context))
         {
             score -= core.AttackWhileDefenseNeededPenalty;
+        }
+
+        if (isAllEnemiesDamage)
+        {
+            score += ScoreAllEnemiesTargetPressure(context, damage);
+            return score + GetActorPowerAmount(context, "STRENGTH") * Math.Max(1, GetDamageHits(card)) * status.StrengthPerHitValue;
         }
 
         if (!string.IsNullOrEmpty(action.TargetId) &&
@@ -177,6 +185,8 @@ internal sealed class CombatActionScorer
             {
                 score += core.AttackingTargetBonus;
             }
+
+            score += Math.Min(enemy.ThreatScore, 45);
         }
 
         score += GetActorPowerAmount(context, "STRENGTH") * Math.Max(1, GetDamageHits(card)) * status.StrengthPerHitValue;
@@ -249,12 +259,16 @@ internal sealed class CombatActionScorer
         if (vulnerable > 0)
         {
             int followUpAttacks = CountAffordableAttackActions(context, action);
-            score += vulnerable * (followUpAttacks > 0 ? status.VulnerableWithFollowUpValue : status.VulnerableWithoutFollowUpValue);
+            int targetMultiplier = IsAllEnemiesDebuff(card, "Vulnerable") ? Math.Max(1, context.EnemiesById.Count) : 1;
+            score += vulnerable * targetMultiplier * (followUpAttacks > 0 ? status.VulnerableWithFollowUpValue : status.VulnerableWithoutFollowUpValue);
         }
 
         if (weak > 0)
         {
-            score += EstimateWeakPrevention(context, action, weak) * status.WeakDebuffValue;
+            int weakPrevention = IsAllEnemiesDebuff(card, "Weak")
+                ? context.EnemiesById.Values.Sum(enemy => Math.Max(1, enemy.IncomingDamage / 4))
+                : EstimateWeakPrevention(context, action, weak);
+            score += weakPrevention * status.WeakDebuffValue;
         }
 
         return score;
@@ -328,13 +342,24 @@ internal sealed class CombatActionScorer
     private static int ScoreKillPotential(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
     {
         AiCombatRiskProfile risk = context.CombatConfig.Combat.RiskProfile;
+        int estimatedDamage = card.GetEstimatedDamage();
+        if (IsAllEnemiesDamage(card))
+        {
+            return context.EnemiesById.Sum(pair =>
+            {
+                int effectiveEnemyHp = GetTeamAdjustedEnemyHp(context, pair.Key, pair.Value);
+                return effectiveEnemyHp > 0 && estimatedDamage >= effectiveEnemyHp
+                    ? risk.LethalPriorityBonus + pair.Value.IncomingDamage * risk.LethalIncomingDamageValue
+                    : 0;
+            });
+        }
+
         if (string.IsNullOrEmpty(action.TargetId) ||
             !context.EnemiesById.TryGetValue(action.TargetId, out DeterministicEnemyState? enemy))
         {
             return 0;
         }
 
-        int estimatedDamage = card.GetEstimatedDamage();
         int effectiveEnemyHp = GetTeamAdjustedEnemyHp(context, action.TargetId, enemy);
         if (effectiveEnemyHp <= 0)
         {
@@ -353,6 +378,50 @@ internal sealed class CombatActionScorer
     {
         int pendingTeamDamage = context.PendingTeamDamageByEnemyId.TryGetValue(targetId, out int damage) ? damage : 0;
         return Math.Max(0, enemy.CurrentHp + enemy.Block - pendingTeamDamage);
+    }
+
+    private static bool IsAllEnemiesDamage(ResolvedCardView card)
+    {
+        return card.Targeting == TargetType.AllEnemies ||
+               card.Effects.Any(static effect => effect.Kind == EffectKind.DealDamage && effect.TargetScope == TargetScope.AllEnemies);
+    }
+
+    private static bool IsAllEnemiesDebuff(ResolvedCardView card, string powerId)
+    {
+        return card.Effects.Any(effect => effect.Kind == EffectKind.ApplyPower &&
+                                          effect.TargetScope == TargetScope.AllEnemies &&
+                                          string.Equals(effect.AppliedPowerId, powerId, StringComparison.Ordinal));
+    }
+
+    private static int EstimateAllEnemiesUsefulDamage(DeterministicCombatContext context, int damagePerEnemy)
+    {
+        return context.EnemiesById.Sum(pair =>
+        {
+            int effectiveHp = GetTeamAdjustedEnemyHp(context, pair.Key, pair.Value);
+            return Math.Min(damagePerEnemy, effectiveHp);
+        });
+    }
+
+    private static int ScoreAllEnemiesTargetPressure(DeterministicCombatContext context, int damagePerEnemy)
+    {
+        if (context.EnemiesById.Count <= 1)
+        {
+            return 0;
+        }
+
+        int livingTargets = context.EnemiesById.Count(pair => GetTeamAdjustedEnemyHp(context, pair.Key, pair.Value) > 0);
+        int attackingTargets = context.EnemiesById.Values.Count(static enemy => enemy.IsAttacking);
+        int threatenedTargets = context.EnemiesById.Values.Count(static enemy => enemy.ThreatScore >= 18);
+        int likelyKills = context.EnemiesById.Count(pair =>
+        {
+            int effectiveHp = GetTeamAdjustedEnemyHp(context, pair.Key, pair.Value);
+            return effectiveHp > 0 && damagePerEnemy >= effectiveHp;
+        });
+
+        return Math.Max(0, livingTargets - 1) * 14 +
+               attackingTargets * 8 +
+               threatenedTargets * 6 +
+               likelyKills * 18;
     }
 
     private static int ScoreUtility(DeterministicCombatContext context, AiLegalActionOption action)
