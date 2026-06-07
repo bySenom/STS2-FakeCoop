@@ -76,6 +76,14 @@
 - After an Act 1/Act 2 boss is defeated in auto-mode, rewards should resolve and logs should show `[AITeammate][AutoMode] Auto-readying host for act transition`.
 - Expected result: the run proceeds to the next act after AI teammates are auto-readied.
 
+## Real Multiplayer Compatibility Check
+
+- `sts2AITeammate.json` should keep `affects_gameplay` set to `false`.
+- Expected result: a normal multiplayer lobby with another human player should not require the friend to install this mod just because the local player has host auto-mode available.
+- The AI teammate setup still creates local fake multiplayer runs and is not meant for a real human multiplayer lobby.
+- Runtime learning and telemetry JSON files should be written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/`, not under `mods/sts2AITeammate/config/`, because STS2 scans JSON files in `mods/` as possible mod manifests.
+- If multiplayer still complains about missing mods, check the game's `mods/sts2AITeammate/sts2AITeammate.json` and remove stale `mods/sts2AITeammate/config/ai-learning` or `mods/sts2AITeammate/config/ai-telemetry` folders.
+
 ## Build-Aware Combat Rotation Check
 
 - Enter combat with an active build profile and multiple playable cards.
@@ -165,7 +173,7 @@
 - Expected result: selected combat actions log `[AITeammate][Learning] Recorded combat decision`.
 - After a won combat resolves room-end rewards, logs should show `[AITeammate][Learning] Updated experience` and `Completed combat learning`.
 - On run cleanup, or after enough updates, logs should show `[AITeammate][Learning] Flushed experience`.
-- Expected files are written under the copied mod folder at `mods/sts2AITeammate/config/ai-learning/experience.json` and `mods/sts2AITeammate/config/ai-learning/runs/<runId>.json`.
+- Expected files are written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-learning/experience.json` and `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-learning/runs/<runId>.json`.
 - Semantic combat score logs now include `learned=...`.
 - Early tests should usually show `learned=0`; learned influence only starts after enough matching samples and is capped to a small score adjustment.
 
@@ -176,7 +184,7 @@
 - Card rewards, relic choices, upgrades, rest sites, shop steps, potion rewards, and combat completion should also log `[AITeammate][Telemetry] ...`.
 - End or abandon the run.
 - Expected result: cleanup logs `[AITeammate][Telemetry] Flushed run telemetry`.
-- Expected files are written under the copied mod folder at `mods/sts2AITeammate/config/ai-telemetry/latest-summary.json` and `mods/sts2AITeammate/config/ai-telemetry/runs/<runId>.json`.
+- Expected files are written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/latest-summary.json` and `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/<runId>.json`.
 - Check `latest-summary.json` first. It lists each player, build, deck size, upgrade/heal counts, card picks/skips, shop removals, HP, and `probableIssues`.
 - Useful issue flags include `possible_block_shortage`, `possible_scaling_shortage_for_bosses`, `death_with_unused_potions`, `frequent_end_turn_with_energy`, `starter_strikes_still_used_often`, and `active_build_missing_many_core_cards`.
 

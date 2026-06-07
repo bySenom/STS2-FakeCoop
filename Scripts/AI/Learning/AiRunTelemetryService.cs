@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Players;
@@ -675,7 +674,7 @@ internal static class AiRunTelemetryService
 
     private static string GetTelemetryDirectoryPath()
     {
-        return Path.Combine(GetModRootPath(), "config", "ai-telemetry");
+        return AiTeammateStoragePaths.GetRuntimeDataDirectory("ai-telemetry");
     }
 
     private static string GetTelemetryRunsDirectoryPath()
@@ -688,13 +687,6 @@ internal static class AiRunTelemetryService
         return Path.Combine(GetTelemetryDirectoryPath(), "latest-summary.json");
     }
 
-    private static string GetModRootPath()
-    {
-        string? assemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-        return !string.IsNullOrWhiteSpace(assemblyLocation)
-            ? assemblyLocation
-            : AppContext.BaseDirectory;
-    }
 }
 
 internal sealed class AiTelemetryRunFile

@@ -59,6 +59,15 @@
 - Act transition policy: after auto-mode boss rewards finish, the host is auto-readied for the next-act transition so the existing AI teammate ready votes can complete the transition.
 - Verification: press `F4` during a run and confirm logs show host auto-mode enabled/disabled; then finish combat and confirm host rewards auto-resolve with card evaluation logs, while AI teammates still resolve their own rewards deterministically.
 
+## Real Multiplayer Compatibility
+
+- Patch points: `sts2AITeammate.json`, `AiLearningService`, `AiRunTelemetryService`, and the project copy target.
+- Decision: mark the mod manifest as `affects_gameplay=false` so a player can keep the mod installed for local host auto-mode without forcing a human multiplayer friend to install it.
+- Runtime storage policy: learning and telemetry JSON files are stored under `%APPDATA%/SlayTheSpire2/sts2AITeammate/` instead of the copied mod folder.
+- Reasoning: STS2 scans JSON files under `mods/` recursively as possible mod manifests. Generated runtime JSONs in `mods/sts2AITeammate/config/` can create bogus manifest errors and may pollute multiplayer mod checks.
+- Scope policy: real human multiplayer is only expected to use local host auto-mode behavior. Fake AI teammates remain isolated to the AI teammate setup flow and local loopback lobby.
+- Verification: open a normal multiplayer lobby with the mod installed locally and confirm the other player is not rejected for missing `sts2AITeammate`.
+
 ## Build-Aware Combat Rotation
 
 - Patch point: `CombatTurnLinePlanner`.
@@ -152,7 +161,7 @@
 - Update policy: combat completion converts the decision record into a conservative reward signal using survival, estimated damage, estimated damage taken, HP lost after the decision, heuristic margin, and rank penalty.
 - Learning policy: experience updates slowly with a low learning rate and decay. Learned score influence requires multiple matching samples, uses confidence from sample count and variance, and is capped to a small combat-score adjustment.
 - Debug policy: every record/update/flush is logged, and semantic combat logs include `learned=...` so bad learning can be inspected without guessing.
-- Storage policy: aggregate experience is stored as JSON in `config/ai-learning/experience.json`; per-run decision journals are stored in `config/ai-learning/runs/`.
+- Storage policy: aggregate experience is stored as JSON in `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-learning/experience.json`; per-run decision journals are stored in `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-learning/runs/`.
 - Rejected approach: training a separate model or rewriting rotations. The current mod remains heuristic-first, with learned experience only acting as a careful tiebreaker.
 - Verification: after several combats, check that experience files exist, samples increase, and learned adjustments stay at `0` until enough matching context has been observed.
 
@@ -162,7 +171,7 @@
 - Decision: add `AiRunTelemetryService` as a debug/diagnosis layer that records what the bots did during a run without changing their choices.
 - Reasoning: pushing toward high win rates needs evidence about where runs fail. The telemetry records combat decisions, card picks/skips, relics, upgrades, rest choices, shop removals/purchases, potion reward choices, final deck snapshots, HP, relics, potions, and likely issue flags.
 - Attribution policy: current death/loss attribution is conservative and metric-based. It flags probable causes such as block shortage, scaling shortage, unused potions at low/dead HP, too many starter Strike plays, frequent end turns with energy, overblocking, large decks, and missing build core cards.
-- Storage policy: per-run telemetry is stored as JSON in `config/ai-telemetry/runs/`; a compact `config/ai-telemetry/latest-summary.json` is overwritten for fast inspection after the last test run.
+- Storage policy: per-run telemetry is stored as JSON in `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/`; a compact `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/latest-summary.json` is overwritten for fast inspection after the last test run.
 - Rejected approach: immediately tuning all weights toward a target win rate. The smaller step is to make failures visible first, then tune the highest-impact issue with in-game evidence.
 - Verification: after a test run cleanup, inspect `latest-summary.json` and confirm each auto-controlled player has deck metrics and `probableIssues`.
 

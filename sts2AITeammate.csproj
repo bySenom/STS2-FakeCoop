@@ -34,5 +34,7 @@
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(Sts2Dir)\mods\$(MSBuildProjectName)\" />
     <Copy SourceFiles="$(MSBuildProjectName).json" DestinationFolder="$(Sts2Dir)/mods/$(MSBuildProjectName)/" />
     <Copy SourceFiles="@(ConfigFiles)" DestinationFiles="@(ConfigFiles->'$(Sts2Dir)\mods\$(MSBuildProjectName)\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <RemoveDir Directories="$(Sts2Dir)\mods\$(MSBuildProjectName)\config\ai-learning" />
+    <RemoveDir Directories="$(Sts2Dir)\mods\$(MSBuildProjectName)\config\ai-telemetry" />
   </Target>
 </Project>

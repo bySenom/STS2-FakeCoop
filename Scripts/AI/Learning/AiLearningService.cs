@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Players;
@@ -461,7 +460,7 @@ internal static class AiLearningService
 
     private static string GetLearningDirectoryPath()
     {
-        return Path.Combine(GetModRootPath(), "config", "ai-learning");
+        return AiTeammateStoragePaths.GetRuntimeDataDirectory("ai-learning");
     }
 
     private static string GetExperiencePath()
@@ -469,13 +468,6 @@ internal static class AiLearningService
         return Path.Combine(GetLearningDirectoryPath(), "experience.json");
     }
 
-    private static string GetModRootPath()
-    {
-        string? assemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-        return !string.IsNullOrWhiteSpace(assemblyLocation)
-            ? assemblyLocation
-            : AppContext.BaseDirectory;
-    }
 }
 
 internal sealed class AiLearningDecisionRecord
