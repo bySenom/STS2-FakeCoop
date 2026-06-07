@@ -148,6 +148,12 @@ internal sealed partial class AiTeammateDummyController
             : 0d;
         bool healIsUseful = missingHp >= 12;
         bool shouldHeal = healIsUseful && (player.Creature.CurrentHp <= 18 || hpRatio <= 0.45d || missingHp >= 24);
+        bool isSilent = string.Equals(AiCharacterCombatConfigLoader.LoadForPlayer(player).CharacterId, "silent", System.StringComparison.OrdinalIgnoreCase);
+        if (isSilent && healOption != null && player.Creature.CurrentHp < 40 && missingHp >= 10)
+        {
+            reason = $"silent survival rest below 40 hp {player.Creature.CurrentHp}/{player.Creature.MaxHp} missing={missingHp}";
+            return healOption;
+        }
 
         if (shouldHeal && healOption != null)
         {

@@ -19,7 +19,7 @@ internal static class CombatBuildRoleEvaluator
         }
 
         string buildId = profile.BuildId;
-        if (IsNecrobinderEarlySoulCard(context, card) || IsEngineSetup(context, card))
+        if (IsNecrobinderEarlySoulCard(context, card) || IsSilentSlyEngineCard(context, card) || IsEngineSetup(context, card))
         {
             return CombatBuildRole.Setup;
         }
@@ -70,6 +70,11 @@ internal static class CombatBuildRoleEvaluator
         }
 
         string buildId = context.ActiveBuild.Profile.BuildId;
+        if (IsSilentEngineBuild(buildId) && IsSilentSlyEngineCard(context, card))
+        {
+            return true;
+        }
+
         if (IsOrbSetupBuild(buildId) && IsOrbSetupCard(card))
         {
             return true;
@@ -86,6 +91,11 @@ internal static class CombatBuildRoleEvaluator
         }
 
         string buildId = context.ActiveBuild.Profile.BuildId;
+        if (IsSilentEngineBuild(buildId) && IsSilentSlyPayoffCard(card))
+        {
+            return true;
+        }
+
         if (IsOrbSetupBuild(buildId) && IsOrbPayoffCard(card))
         {
             return true;
@@ -112,6 +122,52 @@ internal static class CombatBuildRoleEvaluator
     public static bool IsNecrobinderFreeSoulDraw(DeterministicCombatContext context, ResolvedCardView? card)
     {
         return IsNecrobinderEarlySoulCard(context, card) && card!.GetCardsDrawn() >= 1;
+    }
+
+    public static bool IsSilentSlyEngineCard(DeterministicCombatContext context, ResolvedCardView? card)
+    {
+        if (card == null || !IsSilentContext(context))
+        {
+            return false;
+        }
+
+        bool activeSlyBuild = context.ActiveBuild?.Profile.BuildId is "sly" or "grand_finale";
+        bool knownSlyCard = HasToken(
+            card,
+            "SLY",
+            "MASTERPLANNER",
+            "ACROBATICS",
+            "PREPARED",
+            "REFLEX",
+            "TACTICIAN",
+            "CALCULATEDGAMBLE",
+            "CONCENTRATE",
+            "TOOLSOFTHETRADE",
+            "TOOLS");
+        bool usefulEngineText = card.GetCardsDrawn() > 0 ||
+                                card.GetEnergyGain() > 0 ||
+                                HasToken(card, "DISCARD", "SNEAKY", "GAMBLE");
+        return knownSlyCard || (activeSlyBuild && usefulEngineText);
+    }
+
+    public static bool IsSilentSlyPayoffCard(ResolvedCardView? card)
+    {
+        return card != null && HasToken(card, "GRANDFINALE", "SNEAKY", "EVISCERATE");
+    }
+
+    public static bool IsSilentPoisonSetupCard(ResolvedCardView? card)
+    {
+        return card != null && HasToken(card, "NOXIOUS", "DEADLYPOISON", "ACCELERANT", "BOUNCING", "POISON", "CATALYST");
+    }
+
+    public static bool IsSilentShivSetupCard(ResolvedCardView? card)
+    {
+        return card != null && HasToken(card, "ACCURACY", "AFTERIMAGE", "INFINITEBLADES", "ENVENOM");
+    }
+
+    public static bool IsSilentShivPayoffCard(ResolvedCardView? card)
+    {
+        return card != null && HasToken(card, "BLADEDANCE", "CLOAKANDDAGGER", "SHIV", "FINISHER", "FANOFKNIVES");
     }
 
     public static bool IsNecrobinderEarlySoulCard(DeterministicCombatContext context, ResolvedCardView? card)
@@ -195,8 +251,10 @@ internal static class CombatBuildRoleEvaluator
 
         return buildId switch
         {
-            "poison" => HasToken(card, "NOXIOUS", "POISON", "BOUNCING"),
-            "sly" or "grand_finale" or "claw" => IsCycleCard(card),
+            "poison" => IsSilentPoisonSetupCard(card),
+            "sly" or "grand_finale" => IsSilentSlyEngineCardForBuild(card),
+            "shiv" or "envenom" => IsSilentShivSetupCard(card),
+            "claw" => IsCycleCard(card),
             "frost" or "lightning" or "dark_orb" or "creative_ai" => HasToken(card, "DEFRA", "CAPACITOR", "ECHO", "STORM", "MACHINE", "LOOP", "HEATSINK") || IsOrbSetupCard(card),
             "osty" or "soul" or "doom" or "reaper" => IsOstyGuardCard(card) || HasToken(card, "INVOKE", "BORROWED", "DIRGE", "REANIMATE", "HAUNT", "CAPTURE", "COUNTDOWN", "REAPERFORM", "SOUL"),
             "forge" or "star_burst" or "void_form" or "bombardment" => HasToken(card, "CONQUEROR", "SEEKING", "VOID") || IsStarSetupCard(card),
@@ -217,7 +275,8 @@ internal static class CombatBuildRoleEvaluator
             "strength" => HasToken(card, "HEAVYBLADE", "SWORD", "TWIN", "POMMEL", "WHIRLWIND", "BLUDGEON"),
             "barricade" => HasToken(card, "BODYSLAM"),
             "strike" => HasToken(card, "STRIKE", "PERFECTED"),
-            "shiv" or "envenom" => HasToken(card, "BLADE", "SHIV", "FINISHER", "FANO"),
+            "sly" or "grand_finale" => IsSilentSlyPayoffCard(card),
+            "shiv" or "envenom" => IsSilentShivPayoffCard(card),
             "claw" => HasToken(card, "CLAW", "ALLFORONE", "SCRAPE"),
             "lightning" => HasToken(card, "ZAP", "BALL", "ELECTRODYNAMICS", "LIGHTNING"),
             "dark_orb" => HasToken(card, "DARKNESS", "MULTICAST", "DUALCAST", "CONSUMING"),
@@ -236,6 +295,35 @@ internal static class CombatBuildRoleEvaluator
     private static bool IsStarSetupBuild(string buildId)
     {
         return buildId is "forge" or "star_burst" or "void_form" or "bombardment";
+    }
+
+    private static bool IsSilentEngineBuild(string buildId)
+    {
+        return buildId is "sly" or "grand_finale";
+    }
+
+    private static bool IsSilentContext(DeterministicCombatContext context)
+    {
+        return string.Equals(context.CombatConfig.CharacterId, "silent", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(context.ActiveBuild?.Profile.CharacterId, "silent", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSilentSlyEngineCardForBuild(ResolvedCardView card)
+    {
+        return HasToken(
+                   card,
+                   "SLY",
+                   "MASTERPLANNER",
+                   "ACROBATICS",
+                   "PREPARED",
+                   "REFLEX",
+                   "TACTICIAN",
+                   "CALCULATEDGAMBLE",
+                   "CONCENTRATE",
+                   "TOOLSOFTHETRADE",
+                   "TOOLS",
+                   "DISCARD") ||
+               IsCycleCard(card);
     }
 
     public static bool IsOrbSetupCard(ResolvedCardView card)

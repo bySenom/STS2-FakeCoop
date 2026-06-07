@@ -176,3 +176,13 @@
 - Expected files are written under the copied mod folder at `mods/sts2AITeammate/config/ai-telemetry/latest-summary.json` and `mods/sts2AITeammate/config/ai-telemetry/runs/<runId>.json`.
 - Check `latest-summary.json` first. It lists each player, build, deck size, upgrade/heal counts, card picks/skips, shop removals, HP, and `probableIssues`.
 - Useful issue flags include `possible_block_shortage`, `possible_scaling_shortage_for_bosses`, `death_with_unused_potions`, `frequent_end_turn_with_energy`, `starter_strikes_still_used_often`, and `active_build_missing_many_core_cards`.
+
+## Silent Strength Check
+
+- Sly/Discard: give Silent `Master Planner`, `Acrobatics`, `Prepared`, `Reflex`, `Tactician`, `Calculated Gamble`, or similar Sly/discard cards.
+- Expected result: semantic combat logs show high `setup=...`, `future=...`, or build score, and the combat line should play Sly engine/draw cards before ordinary attacks while energy remains.
+- Poison: test `Noxious Fumes`, `Deadly Poison`, `Bouncing Flask`, `Accelerant`, `Catalyst`, and `Burst`.
+- Expected result: poison stackers gain future value, and `Accelerant`/`Catalyst` become valuable only when poison is already present.
+- Shiv: test `Accuracy` plus `Blade Dance` or `Cloak and Dagger`.
+- Expected result: `Accuracy`/setup should be favored before shiv payoff cards when no lethal/survival emergency overrides it.
+- Rest site: with Silent below 40 HP and at least 10 missing HP, expected result is Rest over Smith; above that, upgrades can still win.

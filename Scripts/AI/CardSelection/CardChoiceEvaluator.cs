@@ -342,7 +342,73 @@ internal sealed class CardChoiceEvaluator
             score += synergy.HighAscensionBlockBonus;
         }
 
+        score += ScoreSilentContext(card, features, context);
         return score;
+    }
+
+    private static double ScoreSilentContext(ResolvedCardView card, CardFeatureVector features, CardEvaluationContext context)
+    {
+        if (!string.Equals(AiCharacterCombatConfigLoader.LoadForPlayer(context.Player).CharacterId, "silent", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0d;
+        }
+
+        double score = 0d;
+        bool earlyAct = context.CurrentActIndex == 0 && context.TotalFloor <= 10;
+        if (HasToken(card, "MASTERPLANNER"))
+        {
+            score += 24d;
+        }
+
+        if (HasToken(card, "SLY", "ACROBATICS", "PREPARED", "REFLEX", "TACTICIAN", "CALCULATEDGAMBLE", "CONCENTRATE", "DISCARD"))
+        {
+            score += 16d + features.Draw * 3d + features.Energy * 4d;
+        }
+
+        if (HasToken(card, "NOXIOUS", "DEADLYPOISON", "ACCELERANT", "BOUNCINGFLASK"))
+        {
+            score += earlyAct ? 22d : 16d;
+        }
+
+        if (HasToken(card, "CATALYST", "BURST") && context.DeckCards.Any(deckCard => HasToken(deckCard, "POISON", "NOXIOUS", "DEADLY", "BOUNCING")))
+        {
+            score += 18d;
+        }
+
+        if (HasToken(card, "NEUTRALIZE"))
+        {
+            score += earlyAct ? 14d : 8d;
+        }
+
+        if (HasToken(card, "FOOTWORK", "LEGSWEEP", "BACKFLIP"))
+        {
+            score += context.DeckSummary.BlockSources < 7 ? 16d : 8d;
+        }
+
+        if (HasToken(card, "ACCURACY"))
+        {
+            int shivCards = context.DeckCards.Count(deckCard => HasToken(deckCard, "BLADEDANCE", "CLOAKANDDAGGER", "SHIV"));
+            score += shivCards > 0 ? 22d : 10d;
+        }
+
+        if (HasToken(card, "BLADEDANCE", "CLOAKANDDAGGER", "SHIV", "FANOFKNIVES"))
+        {
+            score += earlyAct ? 14d : 8d;
+        }
+
+        return score;
+    }
+
+    private static bool HasToken(ResolvedCardView card, params string[] tokens)
+    {
+        string normalizedName = AiBuildProfileAnalyzer.Normalize(card.Name);
+        string normalizedId = AiBuildProfileAnalyzer.Normalize(card.CardId);
+        return tokens.Any(token =>
+        {
+            string normalizedToken = AiBuildProfileAnalyzer.Normalize(token);
+            return normalizedName.Contains(normalizedToken, StringComparison.Ordinal) ||
+                   normalizedId.Contains(normalizedToken, StringComparison.Ordinal);
+        });
     }
 
     private static double ScoreShopContext(CardEvaluationContext context, AiCardRewardTuning tuning)

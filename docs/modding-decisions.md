@@ -163,3 +163,13 @@
 - Storage policy: per-run telemetry is stored as JSON in `config/ai-telemetry/runs/`; a compact `config/ai-telemetry/latest-summary.json` is overwritten for fast inspection after the last test run.
 - Rejected approach: immediately tuning all weights toward a target win rate. The smaller step is to make failures visible first, then tune the highest-impact issue with in-game evidence.
 - Verification: after a test run cleanup, inspect `latest-summary.json` and confirm each auto-controlled player has deck metrics and `probableIssues`.
+
+## Silent Archetype Strengthening
+
+- Patch points: `AiBuildArchetypeCatalog`, `CardChoiceEvaluator`, `CombatBuildRoleEvaluator`, `CombatActionScorer`, `CombatTurnLinePlanner`, and rest-site option selection.
+- Decision: make Silent's strongest directions explicit: Sly Discard is treated as an S-tier engine, Poison recognizes `Accelerant`, and Shiv differentiates setup cards such as `Accuracy` from payoff/generator cards.
+- Reasoning: Silent was underperforming because draw/discard cards looked like low immediate value, poison was undervalued before current-turn damage, and shiv setup could be played too late.
+- Combat policy: Sly engine cards receive early-turn setup/future value while energy remains; poison stackers and poison payoff cards gain long-horizon value; starter `Strike` is penalized when an affordable Silent engine card exists.
+- Reward policy: Silent card rewards get extra context value for Sly/discard cards, Poison core cards, `Neutralize`, defensive survival cards, and Shiv setup/generator cards.
+- Survival policy: Silent rests more aggressively below 40 HP when healing is available and at least 10 HP is missing.
+- Verification: check Sly engine cards before starter attacks, poison future scores on stack/payoff cards, `Accuracy` before shiv spam, and Rest over Smith below 40 HP.

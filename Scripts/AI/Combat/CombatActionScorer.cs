@@ -348,6 +348,11 @@ internal sealed class CombatActionScorer
             {
                 score += hasSpendableFollowUp ? 80 : 52;
             }
+
+            if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
+            {
+                score += hasSpendableFollowUp ? 72 : 40;
+            }
         }
 
         if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
@@ -362,6 +367,15 @@ internal sealed class CombatActionScorer
         if (energyGain > 0)
         {
             score += energyGain * resource.EnergyGainValue;
+        }
+
+        if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
+        {
+            score += context.Energy > 0 ? 56 : 28;
+            if (HasUnplayedAffordableNonSlyAction(context, action))
+            {
+                score += 18;
+            }
         }
 
         return score;
@@ -640,6 +654,29 @@ internal sealed class CombatActionScorer
             score += active.IsLocked ? 32 : 22;
         }
 
+        if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
+        {
+            score += active.IsLocked ? 42 : 28;
+            if (context.Energy > 0)
+            {
+                score += 18;
+            }
+        }
+
+        if (profile.BuildId == "poison" && CombatBuildRoleEvaluator.IsSilentPoisonSetupCard(card))
+        {
+            score += active.IsLocked ? 30 : 18;
+            if (context.IsEliteOrBossCombat)
+            {
+                score += 14;
+            }
+        }
+
+        if (profile.BuildId is "shiv" or "envenom" && CombatBuildRoleEvaluator.IsSilentShivSetupCard(card))
+        {
+            score += active.IsLocked ? 34 : 22;
+        }
+
         if (CombatBuildRoleEvaluator.IsPriorityDrawBlockCard(card) && EstimateUncoveredEndTurnDamage(context) > 0)
         {
             score += 18;
@@ -667,6 +704,7 @@ internal sealed class CombatActionScorer
         score += ScorePoisonFutureValue(context, action, card);
         score += ScorePersistentEngineFutureValue(context, card);
         score += ScoreNecrobinderFutureValue(context, action, card);
+        score += ScoreSilentFutureValue(context, action, card);
         return score;
     }
 
@@ -706,6 +744,58 @@ internal sealed class CombatActionScorer
         if (isPoisonBuild && score > 0)
         {
             score += context.IsEliteOrBossCombat ? 28 : 16;
+        }
+
+        return score;
+    }
+
+    private static int ScoreSilentFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        if (!string.Equals(context.CombatConfig.CharacterId, "silent", StringComparison.OrdinalIgnoreCase) &&
+            context.ActiveBuild?.Profile.CharacterId != "silent")
+        {
+            return 0;
+        }
+
+        int score = 0;
+        string buildId = context.ActiveBuild?.Profile.BuildId ?? string.Empty;
+        if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
+        {
+            int followUps = CountAffordablePlayableActions(context, action, extraEnergy: card.GetEnergyGain());
+            score += buildId is "sly" or "grand_finale" ? 62 : 34;
+            score += card.GetCardsDrawn() * 14;
+            score += Math.Max(0, card.GetEnergyGain()) * 18;
+            score += Math.Min(followUps, 3) * 10;
+            if (context.Energy > 0)
+            {
+                score += 18;
+            }
+        }
+
+        if (buildId == "poison" && HasCardToken(card, "ACCELERANT", "CATALYST", "BURST"))
+        {
+            int totalPoison = context.EnemiesById.Values.Sum(static enemy => GetEnemyPowerAmount(enemy, "POISON"));
+            if (totalPoison > 0)
+            {
+                score += Math.Min(totalPoison, 18) * 8;
+                score += context.IsEliteOrBossCombat ? 30 : 16;
+            }
+            else if (HasCardToken(card, "ACCELERANT"))
+            {
+                score -= 18;
+            }
+        }
+
+        if (buildId is "shiv" or "envenom" && CombatBuildRoleEvaluator.IsSilentShivSetupCard(card))
+        {
+            int shivPayoffs = context.HandCardsByInstanceId.Values.Count(CombatBuildRoleEvaluator.IsSilentShivPayoffCard);
+            score += 42 + shivPayoffs * 16;
+        }
+
+        if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
+            HasUnplayedAffordableSilentEngineAction(context, action))
+        {
+            score -= buildId is "sly" or "poison" or "shiv" ? 58 : 34;
         }
 
         return score;
@@ -885,6 +975,48 @@ internal sealed class CombatActionScorer
 
             ResolvedCardView? card = ResolveCard(context, candidate);
             if (card != null && !CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasUnplayedAffordableNonSlyAction(DeterministicCombatContext context, AiLegalActionOption currentAction)
+    {
+        foreach (AiLegalActionOption candidate in context.LegalActions)
+        {
+            if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) ||
+                !IsAffordableAtEnergy(context, candidate, context.Energy))
+            {
+                continue;
+            }
+
+            ResolvedCardView? card = ResolveCard(context, candidate);
+            if (card != null && !CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasUnplayedAffordableSilentEngineAction(DeterministicCombatContext context, AiLegalActionOption currentAction)
+    {
+        foreach (AiLegalActionOption candidate in context.LegalActions)
+        {
+            if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) ||
+                !IsAffordableAtEnergy(context, candidate, context.Energy))
+            {
+                continue;
+            }
+
+            ResolvedCardView? card = ResolveCard(context, candidate);
+            if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card) ||
+                CombatBuildRoleEvaluator.IsSilentPoisonSetupCard(card) ||
+                CombatBuildRoleEvaluator.IsSilentShivSetupCard(card))
             {
                 return true;
             }

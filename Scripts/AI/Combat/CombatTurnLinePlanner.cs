@@ -118,6 +118,8 @@ internal sealed class CombatTurnLinePlanner
         bool isNecrobinderEarlySoulCard = CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card);
         bool isPriorityDrawBlockCard = CombatBuildRoleEvaluator.IsPriorityDrawBlockCard(card);
         bool isOstyGuardCard = CombatBuildRoleEvaluator.IsOstyGuardCard(card);
+        bool isSilentSlyEngineCard = CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card);
+        bool isSilentShivSetupCard = CombatBuildRoleEvaluator.IsSilentShivSetupCard(card);
 
         if (isOffensivePotion && vulnerable <= 0)
         {
@@ -158,6 +160,8 @@ internal sealed class CombatTurnLinePlanner
             IsNecrobinderEarlySoulCard = isNecrobinderEarlySoulCard,
             IsPriorityDrawBlockCard = isPriorityDrawBlockCard,
             IsOstyGuardCard = isOstyGuardCard,
+            IsSilentSlyEngineCard = isSilentSlyEngineCard,
+            IsSilentShivSetupCard = isSilentShivSetupCard,
             IsBlockOnlyDefense = isBlockOnlyDefense,
             BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
@@ -374,6 +378,10 @@ internal sealed class CombatTurnLinePlanner
         public bool IsPriorityDrawBlockCard { get; init; }
 
         public bool IsOstyGuardCard { get; init; }
+
+        public bool IsSilentSlyEngineCard { get; init; }
+
+        public bool IsSilentShivSetupCard { get; init; }
 
         public bool IsBlockOnlyDefense { get; init; }
 
@@ -618,6 +626,15 @@ internal sealed class CombatTurnLinePlanner
                 {
                     next.SetupScore += ActionIds.Count <= 1 ? 20 : 4;
                 }
+
+                if (action.IsSilentSlyEngineCard)
+                {
+                    next.SetupScore += ActionIds.Count <= 1 ? 62 : 16;
+                    if (next.EnergyRemaining > 0)
+                    {
+                        next.SetupScore += ActionIds.Count <= 1 ? 24 : 6;
+                    }
+                }
             }
 
             if (action.EnergyGain > 0)
@@ -641,6 +658,18 @@ internal sealed class CombatTurnLinePlanner
                 }
 
                 return soulScore;
+            }
+
+            if (action.IsSilentSlyEngineCard)
+            {
+                bool slyIsFirstAction = ActionIds.Count <= 1;
+                int slyScore = slyIsFirstAction ? 112 : 22;
+                if (EnergyRemaining > 0)
+                {
+                    slyScore += slyIsFirstAction ? 34 : 8;
+                }
+
+                return slyScore;
             }
 
             if (context.ActiveBuild == null || action.BuildRole == CombatBuildRole.None)
@@ -673,6 +702,11 @@ internal sealed class CombatTurnLinePlanner
                     if (action.IsOstyGuardCard)
                     {
                         score += isFirstAction ? 26 : 10;
+                    }
+
+                    if (action.IsSilentShivSetupCard)
+                    {
+                        score += isFirstAction ? 30 : 12;
                     }
 
                     break;
