@@ -78,6 +78,8 @@ internal sealed class CombatActionScorer
         int killPotentialScore = ScoreKillPotential(context, action, card);
         int buildCombatFitScore = ScoreBuildCombatFit(context, action, card);
         int futureTurnValueScore = ScoreFutureTurnValue(context, action, card);
+        CombatActionCategory category = Classify(card, immediateDamageScore, immediateDefenseScore, selfBuffScore, resourceSetupScore);
+        int learnedAdjustmentScore = AiLearningService.GetCombatAdjustment(context, action, card, category);
         int totalScore = risk.ApplyAttackWeight(immediateDamageScore) +
                          risk.ApplyDefenseWeight(immediateDefenseScore) +
                          enemyDebuffScore +
@@ -86,11 +88,11 @@ internal sealed class CombatActionScorer
                          killPotentialScore +
                          futureTurnValueScore +
                          ScoreEnergyEfficiency(context, action, card) +
-                         buildCombatFitScore;
+                         buildCombatFitScore +
+                         learnedAdjustmentScore;
 
-        CombatActionCategory category = Classify(card, immediateDamageScore, immediateDefenseScore, selfBuffScore, resourceSetupScore);
         Log.Debug(
-            $"[AITeammate] Semantic score actionId={action.ActionId} category={category} damage={immediateDamageScore} defense={immediateDefenseScore} debuff={enemyDebuffScore} buff={selfBuffScore} setup={resourceSetupScore} kill={killPotentialScore} future={futureTurnValueScore} build={buildCombatFitScore} total={totalScore}");
+            $"[AITeammate] Semantic score actionId={action.ActionId} category={category} damage={immediateDamageScore} defense={immediateDefenseScore} debuff={enemyDebuffScore} buff={selfBuffScore} setup={resourceSetupScore} kill={killPotentialScore} future={futureTurnValueScore} build={buildCombatFitScore} learned={learnedAdjustmentScore} total={totalScore}");
 
         return new CombatActionScore
         {

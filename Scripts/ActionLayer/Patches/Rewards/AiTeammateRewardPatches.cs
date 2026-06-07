@@ -60,6 +60,7 @@ internal static class AiTeammateRewardPatches
                 .ToArray();
 
             Log.Info($"[AITeammate] Starting room-end AI reward fanout room={room.GetType().Name} roomCount={player.RunState.CurrentRoomCount} aiCount={aiRewardTasks.Length}");
+            CompleteLearningForRoomEnd(player, room, session);
             await AwaitHostRoomEndRewardsAsync(originalTask, player, room);
             await Task.WhenAll(aiRewardTasks);
             AutoReadyHostForActChangeIfNeeded(player, room);
@@ -98,6 +99,24 @@ internal static class AiTeammateRewardPatches
             }
 
             return new RewardsSet(player).WithRewardsFromRoom(room);
+        }
+
+        private static void CompleteLearningForRoomEnd(Player hostPlayer, AbstractRoom room, AiTeammateSessionState session)
+        {
+            if (room is not CombatRoom)
+            {
+                return;
+            }
+
+            AiLearningService.CompleteCombatForPlayer(hostPlayer, room);
+            foreach (AiTeammateSessionParticipant participant in session.Participants.Where(static participant => !participant.IsHost))
+            {
+                Player? aiPlayer = hostPlayer.RunState.GetPlayer(participant.PlayerId);
+                if (aiPlayer != null)
+                {
+                    AiLearningService.CompleteCombatForPlayer(aiPlayer, room);
+                }
+            }
         }
 
         private static void AutoReadyHostForActChangeIfNeeded(Player player, AbstractRoom room)

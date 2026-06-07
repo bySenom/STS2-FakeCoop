@@ -54,6 +54,17 @@ internal sealed class DeterministicCombatDecisionBackend : IAiDecisionBackend
             Log.Info($"[AITeammate] Combat line actor={request.ActorId} actions=[{string.Join(", ", bestPlan.ActionIds)}] score={bestPlan.Score} estDamage={bestPlan.EstimatedDamageDealt} estTaken={bestPlan.EstimatedDamageTaken} estRetainedBlock={bestPlan.EstimatedBlockAfterEnemyTurn}");
         }
 
+        AiLegalActionOption? chosenAction = request.LegalActions.FirstOrDefault(action =>
+            string.Equals(action.ActionId, chosen.ActionId, StringComparison.Ordinal));
+        if (chosenAction != null)
+        {
+            ResolvedCardView? chosenCard = !string.IsNullOrEmpty(chosenAction.CardInstanceId) &&
+                                           context.HandCardsByInstanceId.TryGetValue(chosenAction.CardInstanceId, out ResolvedCardView? card)
+                ? card
+                : null;
+            AiLearningService.RecordCombatDecision(context, chosenAction, chosenCard, chosen, scoredActions, bestPlan);
+        }
+
         return Task.FromResult(new AiDecisionResult
         {
             ChosenActionId = chosen.ActionId,

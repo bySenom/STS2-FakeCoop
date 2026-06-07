@@ -155,3 +155,13 @@
 - Expected result: AoE card scores should rise when multiple enemies are alive and should count useful damage/kills across enemies.
 - Give one enemy high incoming damage or a recognizable scaling/status/summon-style intent.
 - Expected result: single-target attacks should prefer that high-threat enemy unless another target is clearly lethal or already reserved by teammate damage.
+
+## Combat Learning Check
+
+- Play several combats with AI teammates or host auto-mode enabled.
+- Expected result: selected combat actions log `[AITeammate][Learning] Recorded combat decision`.
+- After a won combat resolves room-end rewards, logs should show `[AITeammate][Learning] Updated experience` and `Completed combat learning`.
+- On run cleanup, or after enough updates, logs should show `[AITeammate][Learning] Flushed experience`.
+- Expected files are written under the copied mod folder at `mods/sts2AITeammate/config/ai-learning/experience.json` and `mods/sts2AITeammate/config/ai-learning/runs/<runId>.json`.
+- Semantic combat score logs now include `learned=...`.
+- Early tests should usually show `learned=0`; learned influence only starts after enough matching samples and is capped to a small score adjustment.

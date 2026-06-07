@@ -141,3 +141,15 @@
 - Reasoning: strong combat play needs to know which enemy matters, not only which enemy has low HP. AoE cards were also undervalued when their damage was counted as only one target.
 - Targeting policy: single-target attacks get extra value against high-threat enemies, while AoE gets useful-damage, likely-kill, attacking-target, and multi-target bonuses.
 - Verification: in a multi-enemy fight, AoE cards should score higher when multiple targets are alive, and single-target attacks should prefer high incoming/scaling/status enemies over harmless low-priority targets when lethal is not decisive.
+
+## Combat Learning Experience Layer
+
+- Patch points: `DeterministicCombatDecisionBackend`, `CombatActionScorer`, `RewardsCmd.OfferForRoomEnd`, and `RunManager.CleanUp`.
+- Decision: add `AiLearningService` as a small experience layer around the existing heuristic combat system instead of replacing any scorer or line planner logic.
+- Recording policy: each chosen combat action stores character, active build, deck archetype, enemy archetype, action role, act bucket, HP bucket, incoming-damage bucket, heuristic score, rank, and line estimates.
+- Update policy: combat completion converts the decision record into a conservative reward signal using survival, estimated damage, estimated damage taken, HP lost after the decision, heuristic margin, and rank penalty.
+- Learning policy: experience updates slowly with a low learning rate and decay. Learned score influence requires multiple matching samples, uses confidence from sample count and variance, and is capped to a small combat-score adjustment.
+- Debug policy: every record/update/flush is logged, and semantic combat logs include `learned=...` so bad learning can be inspected without guessing.
+- Storage policy: aggregate experience is stored as JSON in `config/ai-learning/experience.json`; per-run decision journals are stored in `config/ai-learning/runs/`.
+- Rejected approach: training a separate model or rewriting rotations. The current mod remains heuristic-first, with learned experience only acting as a careful tiebreaker.
+- Verification: after several combats, check that experience files exist, samples increase, and learned adjustments stay at `0` until enough matching context has been observed.
