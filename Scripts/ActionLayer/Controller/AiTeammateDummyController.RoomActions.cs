@@ -120,6 +120,7 @@ internal sealed partial class AiTeammateDummyController
                 async () =>
                 {
                     Log.Info($"[AITeammate][RestSite] Executing option player={player.NetId} option={preferredOption.OptionId} index={optionIndex} reason={reason}");
+                    AiRunTelemetryService.RecordRestSiteChoice(player, preferredOption.OptionId, reason);
                     await ChooseRestSiteOptionAsync(synchronizer, player, optionIndex);
                     return AiActionExecutionResult.Completed;
                 })

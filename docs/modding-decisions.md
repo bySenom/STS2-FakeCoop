@@ -153,3 +153,13 @@
 - Storage policy: aggregate experience is stored as JSON in `config/ai-learning/experience.json`; per-run decision journals are stored in `config/ai-learning/runs/`.
 - Rejected approach: training a separate model or rewriting rotations. The current mod remains heuristic-first, with learned experience only acting as a careful tiebreaker.
 - Verification: after several combats, check that experience files exist, samples increase, and learned adjustments stay at `0` until enough matching context has been observed.
+
+## Run Outcome Telemetry
+
+- Patch points: `DeterministicCombatDecisionBackend`, deterministic reward/card/relic/upgrade helpers, rest-site execution, shop-step execution, `RewardsCmd.OfferForRoomEnd`, `RunManager.Abandon`, and `RunManager.CleanUp`.
+- Decision: add `AiRunTelemetryService` as a debug/diagnosis layer that records what the bots did during a run without changing their choices.
+- Reasoning: pushing toward high win rates needs evidence about where runs fail. The telemetry records combat decisions, card picks/skips, relics, upgrades, rest choices, shop removals/purchases, potion reward choices, final deck snapshots, HP, relics, potions, and likely issue flags.
+- Attribution policy: current death/loss attribution is conservative and metric-based. It flags probable causes such as block shortage, scaling shortage, unused potions at low/dead HP, too many starter Strike plays, frequent end turns with energy, overblocking, large decks, and missing build core cards.
+- Storage policy: per-run telemetry is stored as JSON in `config/ai-telemetry/runs/`; a compact `config/ai-telemetry/latest-summary.json` is overwritten for fast inspection after the last test run.
+- Rejected approach: immediately tuning all weights toward a target win rate. The smaller step is to make failures visible first, then tune the highest-impact issue with in-game evidence.
+- Verification: after a test run cleanup, inspect `latest-summary.json` and confirm each auto-controlled player has deck metrics and `probableIssues`.

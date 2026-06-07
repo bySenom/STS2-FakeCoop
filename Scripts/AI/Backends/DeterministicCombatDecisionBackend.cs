@@ -63,6 +63,7 @@ internal sealed class DeterministicCombatDecisionBackend : IAiDecisionBackend
                 ? card
                 : null;
             AiLearningService.RecordCombatDecision(context, chosenAction, chosenCard, chosen, scoredActions, bestPlan);
+            AiRunTelemetryService.RecordCombatDecision(context, chosenAction, chosenCard, chosen, scoredActions, bestPlan);
         }
 
         return Task.FromResult(new AiDecisionResult

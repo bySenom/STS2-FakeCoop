@@ -165,3 +165,14 @@
 - Expected files are written under the copied mod folder at `mods/sts2AITeammate/config/ai-learning/experience.json` and `mods/sts2AITeammate/config/ai-learning/runs/<runId>.json`.
 - Semantic combat score logs now include `learned=...`.
 - Early tests should usually show `learned=0`; learned influence only starts after enough matching samples and is capped to a small score adjustment.
+
+## Run Telemetry Check
+
+- Play a run with AI teammates or host auto-mode enabled.
+- Expected result: combat choices log `[AITeammate][Telemetry] Combat decision`.
+- Card rewards, relic choices, upgrades, rest sites, shop steps, potion rewards, and combat completion should also log `[AITeammate][Telemetry] ...`.
+- End or abandon the run.
+- Expected result: cleanup logs `[AITeammate][Telemetry] Flushed run telemetry`.
+- Expected files are written under the copied mod folder at `mods/sts2AITeammate/config/ai-telemetry/latest-summary.json` and `mods/sts2AITeammate/config/ai-telemetry/runs/<runId>.json`.
+- Check `latest-summary.json` first. It lists each player, build, deck size, upgrade/heal counts, card picks/skips, shop removals, HP, and `probableIssues`.
+- Useful issue flags include `possible_block_shortage`, `possible_scaling_shortage_for_bosses`, `death_with_unused_potions`, `frequent_end_turn_with_energy`, `starter_strikes_still_used_often`, and `active_build_missing_many_core_cards`.

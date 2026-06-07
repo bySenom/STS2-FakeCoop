@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Entities.Multiplayer;
+using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Multiplayer.Game.Lobby;
@@ -15,6 +16,7 @@ internal static class AiTeammateRunManagerAbandonPatch
     [HarmonyPrefix]
     private static void Prefix()
     {
+        AiRunTelemetryService.MarkRunAbandoned();
         AiTeammateSaveSupport.PrepareForInProgressAbandon();
     }
 }
@@ -22,6 +24,32 @@ internal static class AiTeammateRunManagerAbandonPatch
 [HarmonyPatch(typeof(RunManager), nameof(RunManager.CleanUp))]
 internal static class AiTeammateRunManagerCleanUpPatch
 {
+    [HarmonyPrefix]
+    private static void Prefix(RunManager __instance)
+    {
+        if (__instance.NetService is not AiTeammateLoopbackHostGameService &&
+            AiTeammateSessionRegistry.Current == null)
+        {
+            return;
+        }
+
+        AiTeammateSessionState? session = AiTeammateSessionRegistry.Current;
+        RunState? runState = __instance.DebugOnlyGetState();
+        if (session == null || runState == null)
+        {
+            return;
+        }
+
+        foreach (AiTeammateSessionParticipant participant in session.Participants)
+        {
+            Player? player = runState.GetPlayer(participant.PlayerId);
+            if (player != null)
+            {
+                AiRunTelemetryService.CapturePlayerSnapshot(player, "run_cleanup");
+            }
+        }
+    }
+
     [HarmonyPostfix]
     private static void Postfix(RunManager __instance)
     {
@@ -33,6 +61,7 @@ internal static class AiTeammateRunManagerCleanUpPatch
 
         AiTeammateHostAutoMode.Reset();
         AiLearningService.Flush();
+        AiRunTelemetryService.FlushRun("run_cleanup");
         AiTeammateSaveSupport.ClearInMemorySessionIfNeeded();
     }
 }

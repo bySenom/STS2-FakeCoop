@@ -63,6 +63,7 @@ internal sealed partial class AiTeammateDummyController
         CardModel? selected = decision.ShouldTakeCard
             ? decision.BestEvaluation?.CandidateCard
             : null;
+        AiRunTelemetryService.RecordCardChoice(reward.Player, "reward", decision, selected);
         if (selected != null)
         {
             CardPileAddResult addResult = await CardPileCmd.Add(selected, PileType.Deck);
@@ -108,8 +109,12 @@ internal sealed partial class AiTeammateDummyController
                 canSkip,
                 debugSource: "choose_a_card"));
         LogCardChoiceDecision(player, decision, "choose_screen");
-        return decision.ShouldTakeCard
+        CardModel? selected = decision.ShouldTakeCard
             ? decision.BestEvaluation?.CandidateCard
+            : null;
+        AiRunTelemetryService.RecordCardChoice(player, "choose_screen", decision, selected);
+        return decision.ShouldTakeCard
+            ? selected
             : null;
     }
 
@@ -138,6 +143,7 @@ internal sealed partial class AiTeammateDummyController
 
         if (!decision.ShouldTakeCard && canSkip)
         {
+            AiRunTelemetryService.RecordCardChoice(player, "simple_grid_reward", decision, null);
             Log.Info($"[AITeammate] Deterministic simple-grid reward skipped player={player.NetId} threshold={decision.SkipThreshold:F1}");
             return Task.FromResult<IEnumerable<CardModel>>(Array.Empty<CardModel>());
         }
@@ -146,6 +152,7 @@ internal sealed partial class AiTeammateDummyController
             .Select(static result => result.CandidateCard)
             .Take(desiredCount)
             .ToList();
+        AiRunTelemetryService.RecordCardChoice(player, "simple_grid_reward", decision, selected.FirstOrDefault());
         Log.Info($"[AITeammate] Deterministic simple-grid reward picked player={player.NetId} cards=[{string.Join(", ", selected.Select(static card => card.Id.Entry))}]");
         return Task.FromResult<IEnumerable<CardModel>>(selected);
     }
@@ -180,6 +187,7 @@ internal sealed partial class AiTeammateDummyController
             Log.Info($"[AITeammate] Upgrade evaluation rank player={player.NetId} {result.Describe()}");
         }
 
+        AiRunTelemetryService.RecordUpgradeChoice(player, decision.RankedResults, selected);
         return Task.FromResult<IEnumerable<CardModel>>(selected);
     }
 
@@ -192,6 +200,7 @@ internal sealed partial class AiTeammateDummyController
             Log.Info($"[AITeammate] Relic evaluation rank player={player.NetId} {result.Describe()}");
         }
 
+        AiRunTelemetryService.RecordRelicChoice(player, decision);
         return decision.SelectedRelic;
     }
 
@@ -245,12 +254,14 @@ internal sealed partial class AiTeammateDummyController
                     currentPotion != null)
                 {
                     Log.Info($"[AITeammate] Potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
+                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"replace:{currentPotion.Id.Entry}:incomingScore={incomingScore:F1}:discardScore={discardScore:F1}");
                     await PotionCmd.Discard(currentPotion);
                     await potionReward.SelectUnsynchronized();
                 }
                 else if (incomingPotion != null)
                 {
                     Log.Info($"[AITeammate] Potion reward skipped replacement player={potionReward.Player.NetId} incoming={incomingPotion.Id.Entry}");
+                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, "kept_existing_or_no_slot");
                 }
 
                 return;

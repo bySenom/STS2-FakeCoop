@@ -109,12 +109,14 @@ internal static class AiTeammateRewardPatches
             }
 
             AiLearningService.CompleteCombatForPlayer(hostPlayer, room);
+            AiRunTelemetryService.CompleteCombatForPlayer(hostPlayer, room);
             foreach (AiTeammateSessionParticipant participant in session.Participants.Where(static participant => !participant.IsHost))
             {
                 Player? aiPlayer = hostPlayer.RunState.GetPlayer(participant.PlayerId);
                 if (aiPlayer != null)
                 {
                     AiLearningService.CompleteCombatForPlayer(aiPlayer, room);
+                    AiRunTelemetryService.CompleteCombatForPlayer(aiPlayer, room);
                 }
             }
         }

@@ -73,6 +73,7 @@ internal sealed partial class AiTeammateDummyController
         ShopActionEvaluation resolvedEvaluation = actionEvaluation!;
 
         Log.Info($"[AITeammate][Shop] Chosen step player={PlayerId} bestPlan={planResult.BestPlan.PlanId} action={resolvedAction.ActionId} kind={resolvedAction.Kind} score={resolvedEvaluation.ImmediateScore:F1} desc=\"{resolvedAction.Description}\"");
+        AiRunTelemetryService.RecordShopStep(snapshot.Player, snapshot, currentStep, resolvedEvaluation);
         return await ExecuteValidatedMerchantActionAsync(snapshot, resolvedAction, resolvedEvaluation);
     }
 
