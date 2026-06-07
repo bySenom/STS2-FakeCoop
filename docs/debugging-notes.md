@@ -140,6 +140,7 @@
 - Expected result: defensive potions should become eligible again when uncovered damage is severe; offensive potions should be more likely in elite/boss fights or dangerous turns with attack follow-up.
 - Expected result: if a potion is selected, it should appear early in the combat line, before attacks/payoff cards that benefit from it.
 - Check logs for `Combat score ... category=Potion` and `Combat line ... actions=[use_potion_...`.
+- Boss damage potions and attack amplifiers such as `FIRE`, `EXPLOSIVE`, `STRENGTH`, `FLEX`, `DUPLICATOR`, `DUPLICATE`, and `ENERGY` should count as offensive potion tools when attacks are available.
 
 ## Coop Target Overkill Check
 
@@ -147,6 +148,8 @@
 - Put one enemy at low HP and leave another target alive.
 - Expected result: after the first bot queues lethal damage on the low-HP enemy, later bots should avoid overkilling that same enemy when they have another useful target.
 - Check logs for `reserved team damage` and compare later `Combat score`/`Combat line` target choices.
+- In single-target boss fights, reserved team damage should not suppress later bots from attacking the only enemy.
+- Expected result with 8-player RMP lobbies: low-ranked rDPS bots should still spend damage cards on the boss instead of ending with energy just because earlier teammates reserved damage.
 
 ## Enemy-Aware Targeting and AoE Check
 

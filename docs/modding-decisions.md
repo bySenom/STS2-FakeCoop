@@ -124,6 +124,7 @@
 - Decision: combat potions require tactical need before they can compete with cards/end turn, and useful potions receive line-planning priority early in the turn.
 - Reasoning: potions are limited resources. The bot should not spend them in normal fights or at the end of a turn just because they are legal actions.
 - Need policy: grave danger, severe uncovered damage, elite/boss pressure, or an offensive potion with useful follow-up can justify potion use. Low-value potions are excluded from combat line planning so end turn can win.
+- Damage policy: boss/elite offensive potion detection includes direct damage, poison/vulnerable/weak, strength/flex, duplicator/duplicate, demise/explosive, and energy potion IDs so useful held potions are less likely to remain unused through a lethal boss fight.
 - Verification: in a safe normal fight, held potions should remain unused. In an elite/boss or dangerous turn, a chosen potion should appear early in the planned line before payoff cards.
 
 ## Coop Target Overkill Discipline
@@ -132,6 +133,7 @@
 - Decision: when an AI/auto-mode player queues targeted damage, temporarily reserve that damage by enemy target until the queued action settles.
 - Reasoning: teammates act close together and can otherwise waste multiple attacks on an enemy that is already about to die. Reserving pending damage lets the next bot see the target as effectively lower HP or already covered.
 - Scoring policy: targets already covered by pending teammate damage receive a strong penalty, and targeted overkill is penalized. Combat line damage is capped to remaining useful HP after pending teammate damage.
+- Boss/single-target exception: when only one enemy is hittable, pending teammate damage is ignored for target HP adjustment so later bots in large RMP lobbies keep attacking instead of ending turns with energy. In elite/boss multi-target rooms, pending damage is capped for high-HP targets instead of zeroing them out too early.
 - Verification: in a multi-enemy fight, if one bot queues lethal damage on a low-HP enemy, later bots should prefer another enemy or non-attack action instead of piling more attacks into the same target.
 
 ## Enemy-Aware Targeting and AoE

@@ -418,8 +418,7 @@ internal sealed class CombatActionScorer
 
     private static int GetTeamAdjustedEnemyHp(DeterministicCombatContext context, string targetId, DeterministicEnemyState enemy)
     {
-        int pendingTeamDamage = context.PendingTeamDamageByEnemyId.TryGetValue(targetId, out int damage) ? damage : 0;
-        return Math.Max(0, enemy.CurrentHp + enemy.Block - pendingTeamDamage);
+        return CombatTeamDamageReservationPolicy.GetEffectiveEnemyHp(context, targetId, enemy);
     }
 
     private static bool IsAllEnemiesDamage(ResolvedCardView card)
@@ -1247,7 +1246,14 @@ internal sealed class CombatActionScorer
                || potionId.Contains("VULNERABLE", StringComparison.OrdinalIgnoreCase)
                || potionId.Contains("WEAK", StringComparison.OrdinalIgnoreCase)
                || potionId.Contains("POISON", StringComparison.OrdinalIgnoreCase)
-               || potionId.Contains("FIRE", StringComparison.OrdinalIgnoreCase);
+               || potionId.Contains("FIRE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("EXPLOSIVE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("DEMISE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("STRENGTH", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("FLEX", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("DUPLICATOR", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("DUPLICATE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("ENERGY", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsDefensivePotion(AiLegalActionOption action)
@@ -1256,7 +1262,10 @@ internal sealed class CombatActionScorer
         return potionId.Contains("BLOCK", StringComparison.OrdinalIgnoreCase)
                || potionId.Contains("ARMOR", StringComparison.OrdinalIgnoreCase)
                || potionId.Contains("DEXTERITY", StringComparison.OrdinalIgnoreCase)
-               || potionId.Contains("WEAK", StringComparison.OrdinalIgnoreCase);
+               || potionId.Contains("WEAK", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("HEART_OF_IRON", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("IRON", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("CURE", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsGraveDanger(DeterministicCombatContext context)

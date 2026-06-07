@@ -225,7 +225,14 @@ internal sealed class CombatTurnLinePlanner
                || potionId.Contains("VULNERABLE", StringComparison.OrdinalIgnoreCase)
                || potionId.Contains("WEAK", StringComparison.OrdinalIgnoreCase)
                || potionId.Contains("POISON", StringComparison.OrdinalIgnoreCase)
-               || potionId.Contains("FIRE", StringComparison.OrdinalIgnoreCase);
+               || potionId.Contains("FIRE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("EXPLOSIVE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("DEMISE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("STRENGTH", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("FLEX", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("DUPLICATOR", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("DUPLICATE", StringComparison.OrdinalIgnoreCase)
+               || potionId.Contains("ENERGY", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsZeroEnergyXCost(DeterministicCombatContext context, AiLegalActionOption action)
@@ -774,8 +781,7 @@ internal sealed class CombatTurnLinePlanner
 
         private static int GetTeamAdjustedEnemyHp(DeterministicCombatContext context, string targetId, DeterministicEnemyState enemy)
         {
-            int pendingTeamDamage = context.PendingTeamDamageByEnemyId.TryGetValue(targetId, out int damage) ? damage : 0;
-            return Math.Max(0, enemy.CurrentHp + enemy.Block - pendingTeamDamage);
+            return CombatTeamDamageReservationPolicy.GetEffectiveEnemyHp(context, targetId, enemy);
         }
 
         private int CountAffordableUnconsumedActions(LineNode node, DeterministicCombatContext context, bool requireDamage = false, bool requireBlock = false)
