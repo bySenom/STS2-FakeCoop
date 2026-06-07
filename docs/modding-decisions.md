@@ -52,7 +52,7 @@
 ## Host Auto-Mode
 
 - Patch point: `NRun._Process` via `AiTeammatePeerInputPatches`.
-- Decision: `F4` toggles a host auto-mode controller that ticks the host player through the same `AiTeammateDummyController` decision path.
+- Decision: `F4` toggles a host auto-mode controller that ticks the host player through the same `AiTeammateDummyController` decision path. The tick runs even when there is no fake AI teammate session, so local auto-mode can be used in normal multiplayer.
 - Reasoning: the user can hand control to the bot temporarily without changing party setup or adding a fake player. Host auto-mode is intended for active automation such as combat, not for hiding human reward UI.
 - Reward UI policy: while host auto-mode is enabled, the host also resolves room-end rewards deterministically. Gold/relic/potion rewards are collected automatically, and card rewards use the same build-aware evaluator as AI teammates, including skip decisions for weak or off-build offers.
 - Modded reward policy: reward screens with larger card pools, such as five-card choices, should route through the same build-aware choose-screen/simple-grid handling instead of requiring manual host clicks.
@@ -61,8 +61,9 @@
 
 ## Real Multiplayer Compatibility
 
-- Patch points: `sts2AITeammate.json`, `AiLearningService`, `AiRunTelemetryService`, and the project copy target.
+- Patch points: `sts2AITeammate.json`, `AiLearningService`, `AiRunTelemetryService`, `AiTeammatePeerInputPatches`, `AiTeammateHostAutoMode`, and the project copy target.
 - Decision: mark the mod manifest as `affects_gameplay=false` so a player can keep the mod installed for local host auto-mode without forcing a human multiplayer friend to install it.
+- Local auto-mode policy: without an AI teammate session, `F4` resolves the local player through `LocalContext.NetId` and creates a local-only bot controller. Fake AI teammate peer-input and loopback behavior remains gated to AI teammate sessions.
 - Runtime storage policy: learning and telemetry JSON files are stored under `%APPDATA%/SlayTheSpire2/sts2AITeammate/` instead of the copied mod folder.
 - Reasoning: STS2 scans JSON files under `mods/` recursively as possible mod manifests. Generated runtime JSONs in `mods/sts2AITeammate/config/` can create bogus manifest errors and may pollute multiplayer mod checks.
 - Scope policy: real human multiplayer is only expected to use local host auto-mode behavior. Fake AI teammates remain isolated to the AI teammate setup flow and local loopback lobby.

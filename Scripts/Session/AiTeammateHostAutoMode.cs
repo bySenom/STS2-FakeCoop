@@ -1,19 +1,42 @@
 using Godot;
+using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Logging;
+using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Runs;
 
 namespace AITeammate.Scripts;
 
 internal static class AiTeammateHostAutoMode
 {
     private static AiTeammateDummyController? _hostController;
+    private static ulong? _hostControllerPlayerId;
     private static bool _wasTogglePressed;
 
     public static bool IsEnabled { get; private set; }
 
+    public static void Tick()
+    {
+        AiTeammateSessionState? session = AiTeammateSessionRegistry.Current;
+        if (session != null)
+        {
+            Tick(session);
+            return;
+        }
+
+        HandleToggleInput(TryResolveLocalPlayerId() ?? 0UL, mode: "local");
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        AiTeammateDummyController? controller = GetOrCreateLocalPlayerController();
+        controller?.Tick();
+    }
+
     public static void Tick(AiTeammateSessionState session)
     {
-        HandleToggleInput(session);
+        HandleToggleInput(session.HostPlayerId, mode: "session");
         if (!IsEnabled)
         {
             return;
@@ -25,22 +48,47 @@ internal static class AiTeammateHostAutoMode
 
     public static bool IsAutoControlled(Player? player)
     {
-        return IsEnabled &&
-               player != null &&
-               AiTeammateSessionRegistry.Current?.HostPlayerId == player.NetId;
+        if (!IsEnabled || player == null)
+        {
+            return false;
+        }
+
+        if (AiTeammateSessionRegistry.Current is { } session)
+        {
+            return session.HostPlayerId == player.NetId;
+        }
+
+        return TryResolveLocalPlayerId() == player.NetId;
     }
 
     public static bool TryGetController(ulong playerId, out AiTeammateDummyController controller)
     {
         controller = null!;
-        if (!IsEnabled ||
-            AiTeammateSessionRegistry.Current is not { } session ||
-            session.HostPlayerId != playerId)
+        if (!IsEnabled)
         {
             return false;
         }
 
-        AiTeammateDummyController? hostController = GetOrCreateHostController(session);
+        AiTeammateDummyController? hostController;
+        if (AiTeammateSessionRegistry.Current is { } session)
+        {
+            if (session.HostPlayerId != playerId)
+            {
+                return false;
+            }
+
+            hostController = GetOrCreateHostController(session);
+        }
+        else
+        {
+            if (TryResolveLocalPlayerId() != playerId)
+            {
+                return false;
+            }
+
+            hostController = GetOrCreateLocalPlayerController();
+        }
+
         if (hostController == null)
         {
             return false;
@@ -59,10 +107,11 @@ internal static class AiTeammateHostAutoMode
 
         IsEnabled = false;
         _hostController = null;
+        _hostControllerPlayerId = null;
         _wasTogglePressed = false;
     }
 
-    private static void HandleToggleInput(AiTeammateSessionState session)
+    private static void HandleToggleInput(ulong playerId, string mode)
     {
         bool isPressed = Input.IsKeyPressed(Key.F4);
         if (!isPressed)
@@ -81,10 +130,11 @@ internal static class AiTeammateHostAutoMode
         if (!IsEnabled)
         {
             _hostController = null;
+            _hostControllerPlayerId = null;
         }
 
         string state = IsEnabled ? "enabled" : "disabled";
-        Log.Info($"[AITeammate][AutoMode] Host auto-mode {state}. hotkey=F4 host={session.HostPlayerId}");
+        Log.Info($"[AITeammate][AutoMode] Host auto-mode {state}. hotkey=F4 player={playerId} mode={mode}");
     }
 
     private static AiTeammateDummyController? GetOrCreateHostController(AiTeammateSessionState session)
@@ -104,8 +154,49 @@ internal static class AiTeammateHostAutoMode
             slotIndex: hostParticipant.SlotIndex,
             playerId: session.HostPlayerId,
             character: hostParticipant.Character);
+        _hostControllerPlayerId = session.HostPlayerId;
         Log.Info($"[AITeammate][AutoMode] Created host auto-mode controller. host={session.HostPlayerId}");
         return _hostController;
     }
-}
 
+    private static AiTeammateDummyController? GetOrCreateLocalPlayerController()
+    {
+        ulong? playerId = TryResolveLocalPlayerId();
+        if (!playerId.HasValue || playerId.Value == 0UL)
+        {
+            Log.Warn("[AITeammate][AutoMode] Could not create local auto-mode controller because LocalContext.NetId was missing.");
+            return null;
+        }
+
+        if (_hostController != null && _hostControllerPlayerId == playerId.Value)
+        {
+            return _hostController;
+        }
+
+        Player? player = RunManager.Instance.DebugOnlyGetState()?.GetPlayer(playerId.Value);
+        CharacterModel character = TryResolvePlayerCharacter(player) ??
+                                   AiTeammatePlaceholderCharacters.All[0].ResolveModel();
+        _hostController = new AiTeammateDummyController(
+            slotIndex: 0,
+            playerId: playerId.Value,
+            character: character);
+        _hostControllerPlayerId = playerId.Value;
+        Log.Info($"[AITeammate][AutoMode] Created local auto-mode controller. player={playerId.Value} character={character.Id.Entry}");
+        return _hostController;
+    }
+
+    private static ulong? TryResolveLocalPlayerId()
+    {
+        return LocalContext.NetId;
+    }
+
+    private static CharacterModel? TryResolvePlayerCharacter(Player? player)
+    {
+        if (player == null)
+        {
+            return null;
+        }
+
+        return AiTeammateRuntimeCharacterResolver.TryResolveCharacterModel(player);
+    }
+}

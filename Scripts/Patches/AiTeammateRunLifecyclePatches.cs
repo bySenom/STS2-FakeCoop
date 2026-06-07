@@ -53,8 +53,9 @@ internal static class AiTeammateRunManagerCleanUpPatch
     [HarmonyPostfix]
     private static void Postfix(RunManager __instance)
     {
-        if (__instance.NetService is not AiTeammateLoopbackHostGameService &&
-            AiTeammateSessionRegistry.Current == null)
+        bool isAiTeammateRun = __instance.NetService is AiTeammateLoopbackHostGameService ||
+                               AiTeammateSessionRegistry.Current != null;
+        if (!isAiTeammateRun && !AiTeammateHostAutoMode.IsEnabled)
         {
             return;
         }
@@ -62,7 +63,10 @@ internal static class AiTeammateRunManagerCleanUpPatch
         AiTeammateHostAutoMode.Reset();
         AiLearningService.Flush();
         AiRunTelemetryService.FlushRun("run_cleanup");
-        AiTeammateSaveSupport.ClearInMemorySessionIfNeeded();
+        if (isAiTeammateRun)
+        {
+            AiTeammateSaveSupport.ClearInMemorySessionIfNeeded();
+        }
     }
 }
 

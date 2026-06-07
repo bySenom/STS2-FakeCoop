@@ -23,13 +23,13 @@ internal static class AiTeammatePeerInputPatches
         private static void Postfix()
         {
             AiTeammateSessionState? session = AiTeammateSessionRegistry.Current;
+            AiTeammateHostAutoMode.Tick();
             if (session == null)
             {
                 return;
             }
 
             AiTeammatePeerInputStateSync.EnsureAiPeerInputStates(session);
-            AiTeammateHostAutoMode.Tick(session);
 
             foreach (AiTeammateDummyController controller in session.AiControllers.Values)
             {

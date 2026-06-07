@@ -80,6 +80,8 @@
 
 - `sts2AITeammate.json` should keep `affects_gameplay` set to `false`.
 - Expected result: a normal multiplayer lobby with another human player should not require the friend to install this mod just because the local player has host auto-mode available.
+- Press `F4` during a normal multiplayer run with no AI teammate session.
+- Expected result: logs show `[AITeammate][AutoMode] Host auto-mode enabled` with `mode=local`, and the local player starts using the bot controller.
 - The AI teammate setup still creates local fake multiplayer runs and is not meant for a real human multiplayer lobby.
 - Runtime learning and telemetry JSON files should be written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/`, not under `mods/sts2AITeammate/config/`, because STS2 scans JSON files in `mods/` as possible mod manifests.
 - If multiplayer still complains about missing mods, check the game's `mods/sts2AITeammate/sts2AITeammate.json` and remove stale `mods/sts2AITeammate/config/ai-learning` or `mods/sts2AITeammate/config/ai-telemetry` folders.

@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Logging;
+using MegaCrit.Sts2.Core.Models;
 
 namespace AITeammate.Scripts;
 
@@ -155,6 +156,13 @@ internal static class AiCharacterCombatConfigLoader
     {
         if (AiTeammateSessionRegistry.TryGetParticipant(player.NetId, out AiTeammateSessionParticipant participant) &&
             AiTeammatePlaceholderCharacters.TryGetByModelId(participant.Character.Id.Entry, out AiTeammatePlaceholderCharacter placeholder))
+        {
+            return placeholder.Id;
+        }
+
+        CharacterModel? runtimeCharacter = AiTeammateRuntimeCharacterResolver.TryResolveCharacterModel(player);
+        if (runtimeCharacter != null &&
+            AiTeammatePlaceholderCharacters.TryGetByModelId(runtimeCharacter.Id.Entry, out placeholder))
         {
             return placeholder.Id;
         }
