@@ -16,7 +16,6 @@ namespace AITeammate.Scripts;
 
 public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyListener
 {
-    private const int MaxPlayerCount = 4;
     private const string ContentPanelNodeName = "AiTeammateContentPanel";
     private const string PickerScreenNodeName = "AiTeammateSlotCharacterPickerScreen";
     private const string AscensionPanelNodeName = "AscensionPanel";
@@ -26,6 +25,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
     private const string SessionSummaryNodeName = "AiTeammateSessionSummary";
     private const string SessionHintNodeName = "AiTeammateSessionHint";
     private const string TestMapToggleNodeName = "AiTeammateUseTestMapToggle";
+    private const string AutofillButtonNodeName = "AiTeammateAutofillButton";
     private const string ProceedButtonNodeName = "AiTeammateProceedButton";
     private const float ContentPanelVerticalShift = 170f;
     private static readonly Vector2 AscensionPanelPosition = new(-317f, -341f);
@@ -59,6 +59,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
     private NRemoteLobbyPlayerContainer? _remoteLobbyPlayerContainer;
     private Label? _sessionSummaryLabel;
     private Label? _sessionHintLabel;
+    private Button? _autofillButton;
     private Button? _proceedButton;
     private CheckBox? _useTestMapToggle;
     private AiTeammateSessionState? _sessionState;
@@ -69,6 +70,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
     private bool _isSyncingAscensionPanel;
     private bool _isStartingRun;
     private bool _useTestMap;
+    private int _maxPlayerCount = AiTeammateLobbyLimitSupport.VanillaPlayerLimit;
 
     protected override Control? InitialFocusedControl => null;
 
@@ -107,11 +109,12 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
         _isStartingRun = false;
         CleanupActiveLobby(disconnectSession: true, clearSessionRegistry: true);
         ClearCachedPickerScreen();
+        _maxPlayerCount = AiTeammateLobbyLimitSupport.ResolveMaxPlayerCount();
         _slotSelections.Clear();
         _slotHoverStates.Clear();
         _slotRemoveHoverStates.Clear();
 
-        for (int slotIndex = 0; slotIndex < MaxPlayerCount; slotIndex++)
+        for (int slotIndex = 0; slotIndex < _maxPlayerCount; slotIndex++)
         {
             ResetAiSlotVisual(slotIndex);
         }
@@ -131,6 +134,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
         _sourceSingleplayerSubmenu = sourceSingleplayerSubmenu;
         _sourceCharacterSelectScreen = sourceCharacterSelectScreen;
         _selectedAscensionLevel = SaveManager.Instance.Progress.PreferredMultiplayerAscension;
+        _maxPlayerCount = AiTeammateLobbyLimitSupport.ResolveMaxPlayerCount();
 
         AiTeammateMenuUiFactory.CopySubmenuLayoutFrom(this, sourceSingleplayerSubmenu);
         AddCustomBackButton();
@@ -203,21 +207,33 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
         subtitle.Modulate = new Color(0.88f, 0.93f, 0.97f, 0.85f);
         contentPanel.AddChild(subtitle);
 
-        var slotsRow = new HBoxContainer();
-        slotsRow.AddThemeConstantOverride("separation", 18);
-        slotsRow.SetAnchorsPreset(LayoutPreset.TopWide);
-        slotsRow.OffsetLeft = 42f;
-        slotsRow.OffsetTop = 136f;
-        slotsRow.OffsetRight = -42f;
-        slotsRow.OffsetBottom = 360f;
-        contentPanel.AddChild(slotsRow);
-
-        slotsRow.AddChild(CreateSlotButton(0, "Human Player", "Required", allowPicker: true));
-        slotsRow.AddChild(CreateDivider());
-
-        for (var slotIndex = 1; slotIndex < MaxPlayerCount; slotIndex++)
+        var slotsScroll = new ScrollContainer
         {
-            slotsRow.AddChild(CreateSlotButton(slotIndex, $"AI Player {slotIndex}", "Optional", allowPicker: true));
+            Name = "AiTeammateSlotsScroll",
+            MouseFilter = MouseFilterEnum.Stop
+        };
+        slotsScroll.SetAnchorsPreset(LayoutPreset.TopWide);
+        slotsScroll.OffsetLeft = 42f;
+        slotsScroll.OffsetTop = 136f;
+        slotsScroll.OffsetRight = -42f;
+        slotsScroll.OffsetBottom = 382f;
+        contentPanel.AddChild(slotsScroll);
+
+        var slotsGrid = new GridContainer
+        {
+            Name = "AiTeammateSlotsGrid",
+            Columns = _maxPlayerCount <= 4 ? _maxPlayerCount : 4
+        };
+        slotsGrid.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        slotsGrid.AddThemeConstantOverride("h_separation", 14);
+        slotsGrid.AddThemeConstantOverride("v_separation", 12);
+        slotsScroll.AddChild(slotsGrid);
+
+        slotsGrid.AddChild(CreateSlotButton(0, "Human Player", "Required", allowPicker: true));
+
+        for (var slotIndex = 1; slotIndex < _maxPlayerCount; slotIndex++)
+        {
+            slotsGrid.AddChild(CreateSlotButton(slotIndex, $"AI Player {slotIndex}", "Optional", allowPicker: true));
         }
 
         return contentPanel;
@@ -228,7 +244,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
         var slotButton = new Button
         {
             Name = $"PlayerSlot{slotIndex}",
-            CustomMinimumSize = new Vector2(210f, 220f),
+            CustomMinimumSize = _maxPlayerCount <= 4 ? new Vector2(210f, 220f) : new Vector2(178f, 196f),
             FocusMode = FocusModeEnum.All
         };
         slotButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -279,7 +295,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
 
         var portraitPanel = new Panel
         {
-            CustomMinimumSize = new Vector2(0f, 138f),
+            CustomMinimumSize = _maxPlayerCount <= 4 ? new Vector2(0f, 138f) : new Vector2(0f, 112f),
             MouseFilter = MouseFilterEnum.Ignore
         };
         portraitPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle(PortraitPanelColor, SlotBorderColor, 2, 14));

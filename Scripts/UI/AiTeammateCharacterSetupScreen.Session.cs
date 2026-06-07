@@ -91,6 +91,28 @@ public partial class AiTeammateCharacterSetupScreen
         sessionPanel.AddChild(useTestMapToggle);
         _useTestMapToggle = useTestMapToggle;
 
+        Button autofillButton = new()
+        {
+            Name = AutofillButtonNodeName,
+            Text = "Autofill Bots",
+            FocusMode = FocusModeEnum.All,
+            MouseFilter = MouseFilterEnum.Stop,
+            CustomMinimumSize = new Vector2(180f, 42f)
+        };
+        autofillButton.SetAnchorsPreset(LayoutPreset.TopRight);
+        autofillButton.OffsetLeft = -202f;
+        autofillButton.OffsetTop = 18f;
+        autofillButton.OffsetRight = -22f;
+        autofillButton.OffsetBottom = 60f;
+        autofillButton.AddThemeStyleboxOverride("normal", CreatePanelStyle(new Color(0.23f, 0.44f, 0.57f, 1f), Colors.White, 2, 14));
+        autofillButton.AddThemeStyleboxOverride("hover", CreatePanelStyle(new Color(0.29f, 0.53f, 0.67f, 1f), Colors.White, 2, 14));
+        autofillButton.AddThemeStyleboxOverride("pressed", CreatePanelStyle(new Color(0.18f, 0.36f, 0.49f, 1f), Colors.White, 2, 14));
+        autofillButton.AddThemeColorOverride("font_color", Colors.White);
+        autofillButton.AddThemeFontSizeOverride("font_size", 18);
+        autofillButton.Pressed += OnAutofillBotsPressed;
+        sessionPanel.AddChild(autofillButton);
+        _autofillButton = autofillButton;
+
         if (sourceCharacterSelectScreen != null)
         {
             Node? sourceRemoteContainer = ((Node)sourceCharacterSelectScreen).GetNodeOrNull<Node>(RemotePlayerContainerNodeName);
@@ -175,7 +197,8 @@ public partial class AiTeammateCharacterSetupScreen
         CleanupActiveLobby(disconnectSession: true, clearSessionRegistry: false);
 
         _loopbackService = new AiTeammateLoopbackHostGameService(sessionState.HostPlayerId);
-        _lobby = new StartRunLobby(GameMode.Standard, _loopbackService, this, MaxPlayerCount);
+        _lobby = new StartRunLobby(GameMode.Standard, _loopbackService, this, _maxPlayerCount);
+        Log.Info($"[AITeammate][RMP] Created StartRunLobby maxPlayers={_lobby.MaxPlayers} requested={_maxPlayerCount} participants={sessionState.Participants.Count}.");
         _lobby.AddLocalHostPlayer(SaveManager.Instance.GenerateUnlockStateFromProgress(), SaveManager.Instance.Progress.MaxMultiplayerAscension);
         if (_selectedAscensionLevel > 0)
         {
@@ -298,9 +321,9 @@ public partial class AiTeammateCharacterSetupScreen
             return;
         }
 
-        _sessionSummaryLabel.Text = $"Session participants: {_sessionState.Participants.Count}";
+        _sessionSummaryLabel.Text = $"Session participants: {_sessionState.Participants.Count}/{_maxPlayerCount}";
         _sessionHintLabel.Text = _sessionState.AiCount > 0
-            ? $"Host plus {_sessionState.AiCount} local fake remote teammate(s) now share a real StartRunLobby model.{(_sessionState.UseTestMap ? " Test map enabled." : string.Empty)}"
+            ? $"Host plus {_sessionState.AiCount} local fake remote teammate(s) now share a real StartRunLobby model. Limit source: {(_maxPlayerCount > AiTeammateLobbyLimitSupport.VanillaPlayerLimit ? "RMP" : "vanilla")}.{(_sessionState.UseTestMap ? " Test map enabled." : string.Empty)}"
             : "Host is ready in the session model. Add at least one AI teammate to enable Proceed.";
     }
 
@@ -342,6 +365,33 @@ public partial class AiTeammateCharacterSetupScreen
     {
         _useTestMap = enabled;
         RefreshSessionFromSelections();
+    }
+
+    private void OnAutofillBotsPressed()
+    {
+        AiTeammatePlaceholderCharacter[] characters = AiTeammatePlaceholderCharacters.All;
+        if (characters.Length == 0)
+        {
+            Log.Warn("[AITeammate] Autofill bots skipped because no placeholder characters were registered.");
+            return;
+        }
+
+        int filled = 0;
+        for (int slotIndex = 1; slotIndex < _maxPlayerCount; slotIndex++)
+        {
+            if (_slotSelections.ContainsKey(slotIndex))
+            {
+                continue;
+            }
+
+            AiTeammatePlaceholderCharacter character = characters[(slotIndex - 1) % characters.Length];
+            _slotSelections[slotIndex] = character.Id;
+            UpdateAiSlotVisual(slotIndex, character);
+            filled++;
+        }
+
+        RefreshSessionFromSelections();
+        Log.Info($"[AITeammate][RMP] Autofilled AI bot slots filled={filled} maxPlayers={_maxPlayerCount} selectedAi={Math.Max(0, _slotSelections.Count - (_slotSelections.ContainsKey(0) ? 1 : 0))}.");
     }
 
     private async System.Threading.Tasks.Task StartLobbyRunAsync(string seed, List<ActModel> acts, IReadOnlyList<ModifierModel> modifiers)

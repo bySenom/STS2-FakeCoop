@@ -19,7 +19,6 @@ internal sealed class AiTeammateSessionState
     private const ulong AiNetIdOffset = 10_000UL;
     private const int HostSlotIndex = 0;
     private const int FirstAiSlotIndex = 1;
-    private const int LastAiSlotIndex = 3;
 
     public AiTeammateSessionState(
         ulong hostPlayerId,
@@ -67,7 +66,9 @@ internal sealed class AiTeammateSessionState
         ];
 
         Dictionary<ulong, AiTeammateDummyController> aiControllers = new();
-        for (int slotIndex = FirstAiSlotIndex; slotIndex <= LastAiSlotIndex; slotIndex++)
+        foreach (int slotIndex in selections.Keys
+                     .Where(static slotIndex => slotIndex >= FirstAiSlotIndex)
+                     .OrderBy(static slotIndex => slotIndex))
         {
             if (!selections.TryGetValue(slotIndex, out string? aiCharacterId) ||
                 string.IsNullOrWhiteSpace(aiCharacterId) ||

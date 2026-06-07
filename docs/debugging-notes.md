@@ -186,3 +186,15 @@
 - Shiv: test `Accuracy` plus `Blade Dance` or `Cloak and Dagger`.
 - Expected result: `Accuracy`/setup should be favored before shiv payoff cards when no lethal/survival emergency overrides it.
 - Rest site: with Silent below 40 HP and at least 10 missing HP, expected result is Rest over Smith; above that, upgrades can still win.
+
+## RMP Larger Lobby Check
+
+- Install `RemoveMultiplayerPlayerLimit` in `mods/RemoveMultiplayerPlayerLimit`.
+- Optional: set `[multiplayer] max_player_limit=8` or higher in `mods/RemoveMultiplayerPlayerLimit/config.ini`.
+- Open the AI teammate setup screen.
+- Expected result: logs show `[AITeammate][RMP]` with the detected max player count.
+- Expected result: the setup screen shows a scrollable slot grid up to the detected limit instead of only 4 player slots.
+- Click `Autofill Bots`.
+- Expected result: all empty AI slots are filled by cycling through the available placeholder characters.
+- Press `Proceed`.
+- Expected result: logs show `Created StartRunLobby maxPlayers=... requested=...`, and the run starts with more than 3 AI teammates when RMP is installed and configured above 4.
