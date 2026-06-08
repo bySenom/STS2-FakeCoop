@@ -62,6 +62,7 @@ internal sealed class DeterministicCombatDecisionBackend : IAiDecisionBackend
                                            context.HandCardsByInstanceId.TryGetValue(chosenAction.CardInstanceId, out ResolvedCardView? card)
                 ? card
                 : null;
+            AiCombatTurnDiagnostics.LogDecision(context, chosenAction, chosenCard, chosen, scoredActions, bestPlan);
             AiLearningService.RecordCombatDecision(context, chosenAction, chosenCard, chosen, scoredActions, bestPlan);
             AiRunTelemetryService.RecordCombatDecision(context, chosenAction, chosenCard, chosen, scoredActions, bestPlan);
         }

@@ -176,6 +176,14 @@
 - Rejected approach: immediately tuning all weights toward a target win rate. The smaller step is to make failures visible first, then tune the highest-impact issue with in-game evidence.
 - Verification: after a test run cleanup, inspect `latest-summary.json` and confirm each auto-controlled player has deck metrics and `probableIssues`.
 
+## Combat Turn Diagnosis
+
+- Patch points: `DeterministicCombatDecisionBackend`, `AiCombatTurnDiagnostics`, and `AiRunTelemetryService`.
+- Decision: add a non-invasive combat diagnosis layer that compares the chosen action/line against ranked single-action scores and available hand context.
+- Reasoning: improving toward 80-85% winrate needs repeatable evidence for why a bot played a weak card, ended with energy, skipped a core power, missed a potion window, underblocked, overblocked, or left high damage unused.
+- Behavior policy: diagnosis only logs and stores notes; it does not alter combat choices. Rotation changes should be made later from repeated diagnosis patterns, not from one noisy turn.
+- Verification: combat turns should log `[AITeammate][Diagnosis] Combat turn ... notes=[...]`, and full telemetry run files should include the same diagnosis notes inside combat decision records.
+
 ## Silent Archetype Strengthening
 
 - Patch points: `AiBuildArchetypeCatalog`, `CardChoiceEvaluator`, `CombatBuildRoleEvaluator`, `CombatActionScorer`, `CombatTurnLinePlanner`, and rest-site option selection.

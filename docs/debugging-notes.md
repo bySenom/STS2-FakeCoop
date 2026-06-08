@@ -92,6 +92,9 @@
 - Expected result: setup/cycle cards are preferred before payoff cards when survival and lethal do not override the line.
 - Good checks: Strength before multi-hit attacks, draw/energy before Claw/Sly/Grand Finale payoffs, Necrobinder engine cards before finishers.
 - Check semantic score logs for `future=...`; nonzero values mean the future-turn layer is contributing to the action choice.
+- Check logs beginning with `[AITeammate][Diagnosis] Combat turn`.
+- Useful diagnosis notes include `damage_left`, `block_left`, `core_power_left`, `engine_setup_left`, `potion_left`, `draw_left_while_energy_available`, and `energy_left`.
+- Expected result: ordinary strong turns should log `notes=[ok]` or only low-severity context; repeated diagnosis notes identify the next weight/rotation bug to fix.
 
 ## Future-Turn Value Check
 
@@ -183,11 +186,13 @@
 
 - Play a run with AI teammates or host auto-mode enabled.
 - Expected result: combat choices log `[AITeammate][Telemetry] Combat decision`.
+- Expected result: combat choices also log `[AITeammate][Diagnosis] Combat turn` with best single action, line plan, damage/block opportunities, remaining energy, and diagnosis notes.
 - Card rewards, relic choices, upgrades, rest sites, shop steps, potion rewards, and combat completion should also log `[AITeammate][Telemetry] ...`.
 - End or abandon the run.
 - Expected result: cleanup logs `[AITeammate][Telemetry] Flushed run telemetry`.
 - Expected files are written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/latest-summary.json` and `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/<runId>.json`.
 - Check `latest-summary.json` first. It lists each player, build, deck size, upgrade/heal counts, card picks/skips, shop removals, HP, and `probableIssues`.
+- Full run files include diagnosis notes inside combat decision `notes`; use these to count repeated rotation mistakes across runs.
 - Useful issue flags include `possible_block_shortage`, `possible_scaling_shortage_for_bosses`, `death_with_unused_potions`, `frequent_end_turn_with_energy`, `starter_strikes_still_used_often`, and `active_build_missing_many_core_cards`.
 
 ## Silent Strength Check

@@ -71,7 +71,7 @@ internal static class AiRunTelemetryService
                 Energy = context.Energy,
                 EstimatedDamage = plan?.EstimatedDamageDealt ?? 0,
                 EstimatedDamageTaken = plan?.EstimatedDamageTaken ?? 0,
-                Notes = BuildCombatDecisionNotes(context, action, card, chosenScore, plan),
+                Notes = BuildCombatDecisionNotes(context, action, card, chosenScore, rankedScores, plan),
                 CreatedAtUtc = DateTime.UtcNow
             };
 
@@ -424,6 +424,7 @@ internal static class AiRunTelemetryService
         AiLegalActionOption action,
         ResolvedCardView? card,
         CombatActionScore score,
+        IReadOnlyList<CombatActionScore> rankedScores,
         CombatLinePlan? plan)
     {
         List<string> notes =
@@ -456,6 +457,7 @@ internal static class AiRunTelemetryService
             }
         }
 
+        notes.AddRange(AiCombatTurnDiagnostics.BuildNotes(context, action, card, score, rankedScores, plan));
         return notes;
     }
 
