@@ -11,6 +11,7 @@ internal sealed class CardUpgradeEvaluator
 {
     private readonly CardEvaluationContextFactory _contextFactory = new();
     private readonly AiBuildPreferenceEvaluator _buildPreferenceEvaluator = new();
+    private readonly AiDeckSynergyAnalyzer _deckSynergyAnalyzer = new();
 
     public CardUpgradeDecision Evaluate(Player player, IEnumerable<CardModel> candidates)
     {
@@ -43,6 +44,7 @@ internal sealed class CardUpgradeEvaluator
         ResolvedCardView resolved = _contextFactory.ResolveCandidate(card, index);
         AiEventTuning tuning = AiCharacterCombatConfigLoader.LoadForPlayer(player).Events;
         AiBuildPreferenceResult buildPreference = _buildPreferenceEvaluator.Evaluate(resolved, context);
+        AiDeckSynergyResult synergy = _deckSynergyAnalyzer.Evaluate(resolved, context);
 
         double score = 0d;
         List<string> reasons = [];
@@ -83,6 +85,16 @@ internal sealed class CardUpgradeEvaluator
             reasons.Add("off-build upgrade caution -12.0");
         }
 
+        if (synergy.Score != 0)
+        {
+            double synergyUpgradeScore = synergy.Score * 0.75d;
+            score += synergyUpgradeScore;
+            string reason = synergy.Reasons.Count > 0
+                ? string.Join(", ", synergy.Reasons.Take(3))
+                : "deck synergy";
+            reasons.Add($"synergy upgrade {(synergyUpgradeScore >= 0 ? "+" : string.Empty)}{synergyUpgradeScore:F1}: {reason}");
+        }
+
         if (resolved.Type == CardType.Power || resolved.GetSelfStrengthAmount() > 0 || resolved.GetSelfDexterityAmount() > 0)
         {
             score += 3d;
@@ -102,6 +114,7 @@ internal sealed class CardUpgradeEvaluator
             Name = card.Title?.ToString() ?? card.Id.Entry,
             Score = score,
             BuildPreferenceScore = buildPreference.Score,
+            SynergyScore = synergy.Score,
             IsOffBuild = buildPreference.IsOffBuild,
             Reasons = reasons
         };
@@ -179,13 +192,14 @@ internal sealed class CardUpgradeEvaluationResult
 
     public required double BuildPreferenceScore { get; init; }
 
+    public required double SynergyScore { get; init; }
+
     public required bool IsOffBuild { get; init; }
 
     public IReadOnlyList<string> Reasons { get; init; } = [];
 
     public string Describe()
     {
-        return $"card={CardId} name={Name} score={Score:F1} build={BuildPreferenceScore:F1} offBuild={IsOffBuild} reasons=[{string.Join("; ", Reasons)}]";
+        return $"card={CardId} name={Name} score={Score:F1} build={BuildPreferenceScore:F1} synergy={SynergyScore:F1} offBuild={IsOffBuild} reasons=[{string.Join("; ", Reasons)}]";
     }
 }
-

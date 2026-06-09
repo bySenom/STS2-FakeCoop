@@ -10,6 +10,7 @@ internal sealed class CardChoiceEvaluator
 {
     private readonly CardEvaluationContextFactory _contextFactory = new();
     private readonly AiBuildPreferenceEvaluator _buildPreferenceEvaluator = new();
+    private readonly AiDeckSynergyAnalyzer _deckSynergyAnalyzer = new();
 
     public CardEvaluationContextFactory ContextFactory => _contextFactory;
 
@@ -50,7 +51,8 @@ internal sealed class CardChoiceEvaluator
         double redundancy = ScoreRedundancy(card, features, context, tuning);
         double contextAdjustment = ScoreContext(card, features, context, tuning);
         AiBuildPreferenceResult buildPreference = _buildPreferenceEvaluator.Evaluate(card, context);
-        double final = intrinsic + deckFit + needs + contextAdjustment + buildPreference.Score - redundancy;
+        AiDeckSynergyResult synergy = _deckSynergyAnalyzer.Evaluate(card, context);
+        double final = intrinsic + deckFit + needs + contextAdjustment + buildPreference.Score + synergy.Score - redundancy;
 
         List<string> reasons = [];
         if (intrinsic > 0)
@@ -83,6 +85,14 @@ internal sealed class CardChoiceEvaluator
             reasons.Add($"build {(buildPreference.Score > 0 ? "+" : string.Empty)}{buildPreference.Score:F1}: {buildPreference.Reason}");
         }
 
+        if (synergy.Score != 0)
+        {
+            string reason = synergy.Reasons.Count > 0
+                ? string.Join(", ", synergy.Reasons.Take(3))
+                : "deck synergy";
+            reasons.Add($"synergy {(synergy.Score > 0 ? "+" : string.Empty)}{synergy.Score:F1}: {reason}");
+        }
+
         return new CardEvaluationResult
         {
             CandidateCard = cardModel,
@@ -94,6 +104,7 @@ internal sealed class CardChoiceEvaluator
             RedundancyPenalty = redundancy,
             ContextAdjustmentScore = contextAdjustment,
             BuildPreferenceScore = buildPreference.Score,
+            SynergyScore = synergy.Score,
             IsOffBuild = buildPreference.IsOffBuild,
             Reasons = reasons
         };

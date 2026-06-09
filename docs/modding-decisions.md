@@ -26,6 +26,15 @@
 - Skip policy: once the deck has build evidence, optional reward/shop/choose-screen cards marked off-build must clear a higher effective threshold before the bot will take them.
 - Verification: start an AI teammate run, check card reward or shop-card logs, and confirm top-three card evaluation reasons can include `build +...` or skip reasons like `off_build`.
 
+## Deck Synergy Layer
+
+- Patch points: `CardChoiceEvaluator.EvaluateCard` and `CardUpgradeEvaluator.EvaluateCard`.
+- Decision: keep build profiles as a strategic direction, but add `AiDeckSynergyAnalyzer` as a card-level synergy layer.
+- Reasoning: fixed profiles are useful early, but strong decisions need to react to the actual deck. A card should gain value when it connects existing mechanics such as Poison payoff, Shiv scaling, Sly/discard, orb/focus/slots, Strength plus multi-hit, Barricade/Body Slam block payoff, Exhaust payoff, Necrobinder Soul/Osty, and Regent stars.
+- Scoring policy: synergy is capped and conservative so it can break ties and reward real packages without overpowering survival, deck needs, or missing core-card logic.
+- Upgrade policy: upgrade selection uses the same synergy signal at a reduced weight so high-synergy engine cards are upgraded before random off-package cards.
+- Verification: card reward/shop/upgrade logs should include `synergy=...` and short reasons such as `poison payoff online`, `fills orb engine`, `discard engine`, `feeds block payoff`, or `enables star payoff`.
+
 ## Relic Choice Heuristics
 
 - Patch points: `RelicSelectCmd.FromChooseARelicScreen` and `TreasureRoomRelicSynchronizer.BeginRelicPicking`.

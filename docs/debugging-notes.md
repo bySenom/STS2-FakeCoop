@@ -26,6 +26,7 @@
 - Check the log lines beginning with `[AITeammate] Card evaluation rank`.
 - Expected result: S-tier core cards get strong early bonuses, but A/B-tier build cards can still be selected before any build is locked.
 - Cards that are core/support to the active profile can show reasons like `build +...`, and weak off-build cards can be skipped with `skipReason=off_build`.
+- Cards that connect existing deck mechanics should show `synergy=...` and reasons such as `poison payoff online`, `fills orb engine`, `discard engine`, `feeds block payoff`, or `enables star payoff`.
 - Current card scope: card rewards and shop card offers.
 
 ## Relic Choice Check
@@ -45,7 +46,7 @@
 - Expected result is an upgrade/smith option when available unless HP is truly low or at least 24 HP is missing.
 - Small missing HP should not cause a heal.
 - Check logs for `[AITeammate][RestSite] Options`, `[AITeammate][RestSite] Selected option`, and `[AITeammate] Upgrade evaluation rank`.
-- Upgrade targets should favor build-relevant cards and penalize off-build cards.
+- Upgrade targets should favor build-relevant and high-synergy cards, and penalize off-build cards.
 
 ## Build-Aware Removal Check
 
