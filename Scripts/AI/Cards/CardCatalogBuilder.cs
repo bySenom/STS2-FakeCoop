@@ -77,7 +77,7 @@ internal sealed class CardCatalogBuilder
     private static CardSnapshot CaptureSnapshot(CardModel card, bool isUpgradePreview)
     {
         string description = isUpgradePreview
-            ? card.GetDescriptionForUpgradePreview()
+            ? GetUpgradePreviewDescriptionSafe(card)
             : GetFormattedDescription(card);
         IReadOnlyDictionary<string, int> dynamicVars = GetDynamicVars(card);
         CardFlags flags = GetFlags(card);
@@ -150,9 +150,30 @@ internal sealed class CardCatalogBuilder
 
     private static string GetFormattedDescription(CardModel card)
     {
-        LocString description = card.Description;
-        card.DynamicVars.AddTo(description);
-        return description.GetFormattedText();
+        try
+        {
+            LocString description = card.Description;
+            card.DynamicVars.AddTo(description);
+            return description.GetFormattedText();
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"[AITeammate] Falling back to raw card description. card={card.Id.Entry} reason={ex.GetType().Name}:{ex.Message}");
+            return GetLocTextSafe(card.Description);
+        }
+    }
+
+    private static string GetUpgradePreviewDescriptionSafe(CardModel card)
+    {
+        try
+        {
+            return card.GetDescriptionForUpgradePreview();
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"[AITeammate] Falling back to formatted card description for upgrade preview. card={card.Id.Entry} reason={ex.GetType().Name}:{ex.Message}");
+            return GetFormattedDescription(card);
+        }
     }
 
     private static IReadOnlyDictionary<string, int> GetDynamicVars(CardModel card)
@@ -252,8 +273,8 @@ internal sealed class CardCatalogBuilder
             _ => tip.CanonicalModel switch
             {
                 CardModel cardModel => cardModel.Title,
-                PowerModel powerModel => powerModel.Title.GetFormattedText(),
-                OrbModel orbModel => orbModel.Title.GetFormattedText(),
+                PowerModel powerModel => GetLocTextSafe(powerModel.Title),
+                OrbModel orbModel => GetLocTextSafe(orbModel.Title),
                 _ => null
             }
         };
@@ -267,10 +288,34 @@ internal sealed class CardCatalogBuilder
             CardHoverTip cardHoverTip => GetFormattedDescription(cardHoverTip.Card),
             _ => tip.CanonicalModel switch
             {
-                PowerModel powerModel => powerModel.Description.GetFormattedText(),
+                PowerModel powerModel => GetLocTextSafe(powerModel.Description),
                 _ => null
             }
         };
+    }
+
+    private static string GetLocTextSafe(LocString? locString)
+    {
+        if (locString == null || locString.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            string raw = locString.GetRawText();
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                return raw;
+            }
+        }
+        catch (LocException)
+        {
+        }
+
+        return string.IsNullOrWhiteSpace(locString.LocEntryKey)
+            ? string.Empty
+            : locString.LocEntryKey;
     }
 
     private static IReadOnlyList<NormalizedEffectDescriptor> ExtractSemanticEffects(

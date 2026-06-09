@@ -71,6 +71,7 @@
 - Modded reward pools with more than three cards should be evaluated as one candidate list.
 - AI teammates should still resolve their own rewards deterministically after the host reward flow completes.
 - Press `F4` again to disable host auto-mode.
+- A short `F4` press should log exactly one enabled/disabled transition. If logs show rapid repeated enable/disable lines, the hotkey debounce is not working.
 - If the reward window does not open while auto-mode is enabled, confirm logs show `Deterministically resolving reward offer`, `GoldReward`, and either `Deterministic card reward picked` or `Deterministic card reward skipped`.
 - The action queue wait should not spam `InvalidOperationException` when the front queued action is still `Executing`.
 - After an Act 1/Act 2 boss is defeated in auto-mode, rewards should resolve and logs should show `[AITeammate][AutoMode] Auto-readying host for act transition`.
@@ -82,6 +83,7 @@
 - Expected result: a normal multiplayer lobby with another human player should not require the friend to install this mod just because the local player has host auto-mode available.
 - Press `F4` during a normal multiplayer run with no AI teammate session.
 - Expected result: logs show `[AITeammate][AutoMode] Host auto-mode enabled` with `mode=local`, and the local player starts using the bot controller.
+- Expected result: the first auto-mode tick should not print a long stacktrace burst from card description localization; unsupported formatted strings should fall back to raw loc text.
 - The AI teammate setup still creates local fake multiplayer runs and is not meant for a real human multiplayer lobby.
 - Runtime learning and telemetry JSON files should be written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/`, not under `mods/sts2AITeammate/config/`, because STS2 scans JSON files in `mods/` as possible mod manifests.
 - If multiplayer still complains about missing mods, check the game's `mods/sts2AITeammate/sts2AITeammate.json` and remove stale `mods/sts2AITeammate/config/ai-learning` or `mods/sts2AITeammate/config/ai-telemetry` folders.

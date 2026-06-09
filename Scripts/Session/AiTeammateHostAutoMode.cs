@@ -9,9 +9,11 @@ namespace AITeammate.Scripts;
 
 internal static class AiTeammateHostAutoMode
 {
+    private static readonly TimeSpan ToggleCooldown = TimeSpan.FromMilliseconds(750);
     private static AiTeammateDummyController? _hostController;
     private static ulong? _hostControllerPlayerId;
     private static bool _wasTogglePressed;
+    private static DateTime _nextToggleAllowedAtUtc = DateTime.MinValue;
 
     public static bool IsEnabled { get; private set; }
 
@@ -109,6 +111,7 @@ internal static class AiTeammateHostAutoMode
         _hostController = null;
         _hostControllerPlayerId = null;
         _wasTogglePressed = false;
+        _nextToggleAllowedAtUtc = DateTime.MinValue;
     }
 
     private static void HandleToggleInput(ulong playerId, string mode)
@@ -125,7 +128,14 @@ internal static class AiTeammateHostAutoMode
             return;
         }
 
+        DateTime now = DateTime.UtcNow;
+        if (now < _nextToggleAllowedAtUtc)
+        {
+            return;
+        }
+
         _wasTogglePressed = true;
+        _nextToggleAllowedAtUtc = now + ToggleCooldown;
         IsEnabled = !IsEnabled;
         if (!IsEnabled)
         {

@@ -54,6 +54,8 @@
 - Patch point: `NRun._Process` via `AiTeammatePeerInputPatches`.
 - Decision: `F4` toggles a host auto-mode controller that ticks the host player through the same `AiTeammateDummyController` decision path. The tick runs even when there is no fake AI teammate session, so local auto-mode can be used in normal multiplayer.
 - Reasoning: the user can hand control to the bot temporarily without changing party setup or adding a fake player. Host auto-mode is intended for active automation such as combat, not for hiding human reward UI.
+- Hotkey policy: F4 has a short debounce/cooldown so transient key-state flicker in real multiplayer cannot rapidly enable/disable auto-mode and recreate controllers mid-action.
+- Catalog stability policy: card description formatting failures fall back to raw localization text during catalog building. This keeps unsupported dynamic loc selectors from producing long stacktrace bursts on the first auto-mode combat tick.
 - Reward UI policy: while host auto-mode is enabled, the host also resolves room-end rewards deterministically. Gold/relic/potion rewards are collected automatically, and card rewards use the same build-aware evaluator as AI teammates, including skip decisions for weak or off-build offers.
 - Modded reward policy: reward screens with larger card pools, such as five-card choices, should route through the same build-aware choose-screen/simple-grid handling instead of requiring manual host clicks.
 - Act transition policy: after auto-mode boss rewards finish, the host is auto-readied for the next-act transition so the existing AI teammate ready votes can complete the transition.
