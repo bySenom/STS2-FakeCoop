@@ -27,6 +27,7 @@ internal sealed partial class AiTeammateDummyController
     private static readonly TimeSpan EndTurnGraceInterval = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan ActionSettleTimeout = TimeSpan.FromMilliseconds(5000);
     private static readonly TimeSpan QueueSettleTimeout = TimeSpan.FromMilliseconds(2500);
+    private static readonly TimeSpan RequestOnlyMultiplayerQueueGrace = TimeSpan.FromMilliseconds(1000);
     private static readonly TimeSpan PostSettleGraceInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan MaxInitialCombatDecisionStagger = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan InitialCombatHandWaitTimeout = TimeSpan.FromSeconds(2);
@@ -570,7 +571,7 @@ internal sealed partial class AiTeammateDummyController
 
         if (requestOnlyMultiplayerAction)
         {
-            Log.Info($"[AITeammate] Player={PlayerId} treating local multiplayer request as issued actionId={action.ActionId}; waiting for synchronized queue instead of request CompletionTask.");
+            Log.Info($"[AITeammate] Player={PlayerId} treating local multiplayer request as issued actionId={action.ActionId}; waiting for synchronized queue instead of request CompletionTask graceMs={(int)RequestOnlyMultiplayerQueueGrace.TotalMilliseconds}.");
         }
     }
 
@@ -615,6 +616,13 @@ internal sealed partial class AiTeammateDummyController
 
         if (settlement.WaitForQueueSettle && !settlement.QueueSettled)
         {
+            if (settlement.WasRequestOnlyMultiplayerAction &&
+                now - settlement.IssuedAtUtc < RequestOnlyMultiplayerQueueGrace)
+            {
+                _nextDecisionAtUtc = settlement.IssuedAtUtc + RequestOnlyMultiplayerQueueGrace;
+                return true;
+            }
+
             if (IsQueueSettledForReplan(settlement))
             {
                 settlement.QueueSettled = true;
