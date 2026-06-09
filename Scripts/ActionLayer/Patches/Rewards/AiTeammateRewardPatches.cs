@@ -25,9 +25,25 @@ internal static class AiTeammateRewardPatches
                 return true;
             }
 
+            if (AiTeammateHostAutoMode.IsAutoControlled(__instance.Player))
+            {
+                Log.Info($"[AITeammate][AutoMode] Letting foreground reward offer open player={__instance.Player.NetId}");
+                return true;
+            }
+
             Log.Info($"[AITeammate] Deterministically resolving reward offer player={__instance.Player.NetId} autoMode={AiTeammateHostAutoMode.IsAutoControlled(__instance.Player)}");
             __result = AiTeammateDummyController.ExecuteDeterministicRewardSetAsync(__instance);
             return false;
+        }
+
+        private static void Postfix(RewardsSet __instance, ref Task __result)
+        {
+            if (!AiTeammateHostAutoMode.IsAutoControlled(__instance.Player))
+            {
+                return;
+            }
+
+            __result = AiTeammateDummyController.ExecuteForegroundAutoModeRewardSetAsync(__instance, __result);
         }
     }
 

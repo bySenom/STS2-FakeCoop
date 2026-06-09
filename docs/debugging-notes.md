@@ -66,6 +66,7 @@
 - Expected result: logs show `[AITeammate][AutoMode] Host auto-mode enabled`.
 - While enabled, the host player uses the same deterministic AI choices for combat.
 - Room-end rewards should auto-resolve for the host while auto-mode is enabled.
+- Host auto-mode rewards should open through the normal foreground reward UI first. Logs should show `[AITeammate][AutoMode] Letting foreground reward offer open`, then `Waiting for foreground reward UI`, then `Foreground reward selecting`.
 - Gold should be collected automatically.
 - Card rewards should log `[AITeammate] Card evaluation` and either pick the best build-fitting card or skip weak/off-build offers.
 - Modded reward pools with more than three cards should be evaluated as one candidate list.

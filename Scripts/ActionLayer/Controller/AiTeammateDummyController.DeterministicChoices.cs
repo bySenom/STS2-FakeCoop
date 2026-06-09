@@ -22,6 +22,9 @@ namespace AITeammate.Scripts;
 
 internal sealed partial class AiTeammateDummyController
 {
+    private static readonly TimeSpan ForegroundRewardInitialDelay = TimeSpan.FromMilliseconds(650);
+    private static readonly TimeSpan ForegroundRewardPollInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan ForegroundRewardReadyTimeout = TimeSpan.FromSeconds(4);
     private static readonly FieldInfo? CardRewardCardsField =
         typeof(CardReward).GetField("_cards", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly CardChoiceEvaluator CardEvaluator = new();
@@ -39,6 +42,13 @@ internal sealed partial class AiTeammateDummyController
             await ExecuteRewardAsync(reward);
         }
         Log.Info($"[AITeammate] Deterministic reward set complete player={rewardsSet.Player.NetId} room={rewardsSet.Room?.GetType().Name ?? "Custom"} roomCount={rewardsSet.Player.RunState.CurrentRoomCount} currentRoom={rewardsSet.Player.RunState.CurrentRoom?.GetType().Name ?? "null"}");
+    }
+
+    public static async Task ExecuteForegroundAutoModeRewardSetAsync(RewardsSet rewardsSet, Task originalOfferTask)
+    {
+        Task resolverTask = ResolveForegroundAutoModeRewardsAsync(rewardsSet, originalOfferTask);
+        await originalOfferTask;
+        await resolverTask;
     }
 
     public static async Task<bool> ExecuteDeterministicCardRewardAsync(CardReward reward)
@@ -237,6 +247,91 @@ internal sealed partial class AiTeammateDummyController
             case CardReward cardReward:
                 await ExecuteDeterministicCardRewardAsync(cardReward);
                 return;
+            case PotionReward potionReward:
+                if (await potionReward.SelectUnsynchronized())
+                {
+                    return;
+                }
+
+                PotionModel? incomingPotion = potionReward.Potion;
+                if (incomingPotion != null &&
+                    PotionHeuristicEvaluator.TryChoosePotionToReplace(
+                        potionReward.Player,
+                        incomingPotion,
+                        out PotionModel? currentPotion,
+                        out double incomingScore,
+                        out double discardScore) &&
+                    currentPotion != null)
+                {
+                    Log.Info($"[AITeammate] Potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
+                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"replace:{currentPotion.Id.Entry}:incomingScore={incomingScore:F1}:discardScore={discardScore:F1}");
+                    await PotionCmd.Discard(currentPotion);
+                    await potionReward.SelectUnsynchronized();
+                }
+                else if (incomingPotion != null)
+                {
+                    Log.Info($"[AITeammate] Potion reward skipped replacement player={potionReward.Player.NetId} incoming={incomingPotion.Id.Entry}");
+                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, "kept_existing_or_no_slot");
+                }
+
+                return;
+            default:
+                await reward.SelectUnsynchronized();
+                return;
+        }
+    }
+
+    private static async Task ResolveForegroundAutoModeRewardsAsync(RewardsSet rewardsSet, Task originalOfferTask)
+    {
+        try
+        {
+            using IDisposable selectorScope = PushDeterministicCardSelector();
+            Log.Info($"[AITeammate][AutoMode] Waiting for foreground reward UI player={rewardsSet.Player.NetId} room={rewardsSet.Room?.GetType().Name ?? "Custom"}");
+            await Task.Delay(ForegroundRewardInitialDelay);
+
+            DateTime waitStartedAtUtc = DateTime.UtcNow;
+            while (!originalOfferTask.IsCompleted &&
+                   rewardsSet.Rewards.Count == 0 &&
+                   DateTime.UtcNow - waitStartedAtUtc < ForegroundRewardReadyTimeout)
+            {
+                await Task.Delay(ForegroundRewardPollInterval);
+            }
+
+            if (originalOfferTask.IsCompleted)
+            {
+                Log.Info($"[AITeammate][AutoMode] Foreground reward offer already completed player={rewardsSet.Player.NetId}");
+                return;
+            }
+
+            if (rewardsSet.Rewards.Count == 0)
+            {
+                Log.Warn($"[AITeammate][AutoMode] Foreground reward UI did not expose rewards in time player={rewardsSet.Player.NetId}; leaving rewards manual.");
+                return;
+            }
+
+            Log.Info($"[AITeammate][AutoMode] Resolving foreground rewards player={rewardsSet.Player.NetId} count={rewardsSet.Rewards.Count}");
+            foreach (Reward reward in rewardsSet.Rewards.ToList())
+            {
+                if (originalOfferTask.IsCompleted)
+                {
+                    return;
+                }
+
+                Log.Info($"[AITeammate][AutoMode] Foreground reward selecting player={rewardsSet.Player.NetId} reward={reward.GetType().Name}");
+                await ExecuteForegroundRewardAsync(reward);
+                await Task.Delay(ForegroundRewardPollInterval);
+            }
+        }
+        catch (Exception exception)
+        {
+            Log.Warn($"[AITeammate][AutoMode] Failed to foreground-resolve rewards player={rewardsSet.Player.NetId}: {exception}");
+        }
+    }
+
+    private static async Task ExecuteForegroundRewardAsync(Reward reward)
+    {
+        switch (reward)
+        {
             case PotionReward potionReward:
                 if (await potionReward.SelectUnsynchronized())
                 {
