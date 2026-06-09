@@ -113,26 +113,28 @@ public partial class AiTeammateCharacterSetupScreen
         sessionPanel.AddChild(autofillButton);
         _autofillButton = autofillButton;
 
-        if (sourceCharacterSelectScreen != null)
+        ScrollContainer participantScroll = new()
         {
-            Node? sourceRemoteContainer = ((Node)sourceCharacterSelectScreen).GetNodeOrNull<Node>(RemotePlayerContainerNodeName);
-            if (sourceRemoteContainer != null)
-            {
-                Node duplicate = sourceRemoteContainer.Duplicate(AiTeammateMenuUiFactory.DuplicateNodeFlags);
-                if (duplicate is NRemoteLobbyPlayerContainer remoteLobbyPlayerContainer)
-                {
-                    ((Node)remoteLobbyPlayerContainer).Name = "AiTeammateRemotePlayerContainer";
-                    remoteLobbyPlayerContainer.SetAnchorsPreset(LayoutPreset.FullRect);
-                    remoteLobbyPlayerContainer.OffsetLeft = 18f;
-                    remoteLobbyPlayerContainer.OffsetTop = 124f;
-                    remoteLobbyPlayerContainer.OffsetRight = -18f;
-                    remoteLobbyPlayerContainer.OffsetBottom = -18f;
-                    sessionPanel.AddChild(remoteLobbyPlayerContainer);
-                    _remoteLobbyPlayerContainer = remoteLobbyPlayerContainer;
-                    HideInviteControls(remoteLobbyPlayerContainer);
-                }
-            }
-        }
+            Name = "AiTeammateParticipantScroll",
+            MouseFilter = MouseFilterEnum.Stop,
+            ClipContents = true
+        };
+        participantScroll.SetAnchorsPreset(LayoutPreset.BottomWide);
+        participantScroll.OffsetLeft = 22f;
+        participantScroll.OffsetTop = -70f;
+        participantScroll.OffsetRight = -250f;
+        participantScroll.OffsetBottom = -18f;
+        sessionPanel.AddChild(participantScroll);
+
+        HBoxContainer participantList = new()
+        {
+            Name = ParticipantListNodeName,
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        participantList.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        participantList.AddThemeConstantOverride("separation", 8);
+        participantScroll.AddChild(participantList);
+        _participantList = participantList;
 
         Button proceedButton = new()
         {
@@ -162,6 +164,7 @@ public partial class AiTeammateCharacterSetupScreen
         _proceedButton = proceedButton;
 
         RefreshSessionStatus();
+        RefreshParticipantList();
         RefreshProceedButtonState();
     }
 
@@ -210,6 +213,7 @@ public partial class AiTeammateCharacterSetupScreen
             _remoteLobbyPlayerContainer.Initialize(_lobby, displayLocalPlayer: true);
             HideInviteControls(_remoteLobbyPlayerContainer);
         }
+        RefreshParticipantList();
     }
 
     private void SyncLobbyToSession(AiTeammateSessionState sessionState)
@@ -258,6 +262,7 @@ public partial class AiTeammateCharacterSetupScreen
         }
 
         _loopbackService.SetCurrentSenderId(sessionState.HostPlayerId);
+        RefreshParticipantList();
     }
 
     private void AddParticipantToLobby(AiTeammateSessionParticipant participant)
@@ -318,6 +323,7 @@ public partial class AiTeammateCharacterSetupScreen
             _sessionSummaryLabel.Text = "Session panel";
             _sessionHintLabel.Text = "Select the host character first to build a local teammate session.";
             _remoteLobbyPlayerContainer?.Cleanup();
+            RefreshParticipantList();
             return;
         }
 
@@ -325,6 +331,101 @@ public partial class AiTeammateCharacterSetupScreen
         _sessionHintLabel.Text = _sessionState.AiCount > 0
             ? $"Host plus {_sessionState.AiCount} local fake remote teammate(s) now share a real StartRunLobby model. Limit source: {(_maxPlayerCount > AiTeammateLobbyLimitSupport.VanillaPlayerLimit ? "RMP" : "vanilla")}.{(_sessionState.UseTestMap ? " Test map enabled." : string.Empty)}"
             : "Host is ready in the session model. Add at least one AI teammate to enable Proceed.";
+        RefreshParticipantList();
+    }
+
+    private void RefreshParticipantList()
+    {
+        if (_participantList == null)
+        {
+            return;
+        }
+
+        foreach (Node child in _participantList.GetChildren())
+        {
+            _participantList.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        if (_sessionState == null)
+        {
+            _participantList.AddChild(CreateParticipantChip("Waiting for host", "Select a character", null, isHost: true));
+            return;
+        }
+
+        foreach (AiTeammateSessionParticipant participant in _sessionState.Participants.OrderBy(static participant => participant.SlotIndex))
+        {
+            _participantList.AddChild(CreateParticipantChip(
+                participant.DisplayName,
+                participant.Character.Title.ToString(),
+                AiTeammatePlaceholderCharacters.LoadTexture(AiTeammatePlaceholderCharacters.TryGetByModelId(participant.Character.Id.Entry, out AiTeammatePlaceholderCharacter placeholder)
+                    ? placeholder.TexturePath
+                    : string.Empty),
+                participant.IsHost));
+        }
+    }
+
+    private Control CreateParticipantChip(string playerName, string characterName, Texture2D? portraitTexture, bool isHost)
+    {
+        Panel chip = new()
+        {
+            CustomMinimumSize = new Vector2(118f, 48f),
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        chip.AddThemeStyleboxOverride("panel", CreatePanelStyle(ParticipantChipColor, isHost ? ProceedButtonColor : SlotBorderColor, 2, 10));
+
+        HBoxContainer row = new()
+        {
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        row.SetAnchorsPreset(LayoutPreset.FullRect);
+        row.OffsetLeft = 7f;
+        row.OffsetTop = 6f;
+        row.OffsetRight = -7f;
+        row.OffsetBottom = -6f;
+        row.AddThemeConstantOverride("separation", 6);
+        chip.AddChild(row);
+
+        TextureRect portrait = new()
+        {
+            Texture = portraitTexture,
+            CustomMinimumSize = new Vector2(34f, 34f),
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        row.AddChild(portrait);
+
+        VBoxContainer textStack = new()
+        {
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        textStack.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        textStack.AddThemeConstantOverride("separation", 0);
+        row.AddChild(textStack);
+
+        Label playerLabel = new()
+        {
+            Text = playerName,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        playerLabel.AddThemeFontSizeOverride("font_size", 14);
+        textStack.AddChild(playerLabel);
+
+        Label characterLabel = new()
+        {
+            Text = characterName,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        characterLabel.AddThemeFontSizeOverride("font_size", 12);
+        characterLabel.Modulate = new Color(0.88f, 0.93f, 0.97f, 0.82f);
+        textStack.AddChild(characterLabel);
+
+        return chip;
     }
 
     private void RefreshProceedButtonState()
@@ -436,6 +537,7 @@ public partial class AiTeammateCharacterSetupScreen
     {
         _remoteLobbyPlayerContainer?.Cleanup();
         HideInviteControls(_remoteLobbyPlayerContainer);
+        RefreshParticipantList();
 
         if (_lobby != null)
         {
@@ -455,6 +557,7 @@ public partial class AiTeammateCharacterSetupScreen
     {
         _remoteLobbyPlayerContainer?.OnPlayerConnected(player);
         HideInviteControls(_remoteLobbyPlayerContainer);
+        RefreshParticipantList();
     }
 
     public void PlayerChanged(LobbyPlayer player)
@@ -499,6 +602,7 @@ public partial class AiTeammateCharacterSetupScreen
     {
         _remoteLobbyPlayerContainer?.OnPlayerDisconnected(player);
         HideInviteControls(_remoteLobbyPlayerContainer);
+        RefreshParticipantList();
     }
 
     public void BeginRun(string seed, List<ActModel> acts, IReadOnlyList<ModifierModel> modifiers)
@@ -542,6 +646,7 @@ public partial class AiTeammateCharacterSetupScreen
     {
         _remoteLobbyPlayerContainer?.OnPlayerChanged(player);
         HideInviteControls(_remoteLobbyPlayerContainer);
+        RefreshParticipantList();
     }
 
     private static IEnumerable<Node> EnumerateDescendants(Node root)

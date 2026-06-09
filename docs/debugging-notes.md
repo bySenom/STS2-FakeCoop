@@ -211,7 +211,8 @@
 - Optional: set `[multiplayer] max_player_limit=8` or higher in `mods/RemoveMultiplayerPlayerLimit/config.ini`.
 - Open the AI teammate setup screen.
 - Expected result: logs show `[AITeammate][RMP]` with the detected max player count.
-- Expected result: the setup screen shows a scrollable slot grid up to the detected limit instead of only 4 player slots.
+- Expected result: the setup screen shows a compact scrollable slot grid up to the detected limit instead of only 4 player slots.
+- Expected result: with 8/8 participants, the session participant chips stay clipped inside the session panel and do not render outside the panel.
 - Click `Autofill Bots`.
 - Expected result: all empty AI slots are filled by cycling through the available placeholder characters.
 - Press `Proceed`.

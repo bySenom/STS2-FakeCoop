@@ -27,6 +27,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
     private const string TestMapToggleNodeName = "AiTeammateUseTestMapToggle";
     private const string AutofillButtonNodeName = "AiTeammateAutofillButton";
     private const string ProceedButtonNodeName = "AiTeammateProceedButton";
+    private const string ParticipantListNodeName = "AiTeammateParticipantList";
     private const float ContentPanelVerticalShift = 170f;
     private static readonly Vector2 AscensionPanelPosition = new(-317f, -341f);
     private static readonly Vector2 AscensionPanelSize = new(634f, 117f);
@@ -41,6 +42,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
     private static readonly Color RemoveButtonColor = new(0.72f, 0.18f, 0.18f, 0.98f);
     private static readonly Color RemoveButtonHoverColor = new(0.82f, 0.22f, 0.22f, 1f);
     private static readonly Color SessionPanelColor = new(0.10f, 0.14f, 0.20f, 0.94f);
+    private static readonly Color ParticipantChipColor = new(0.14f, 0.22f, 0.31f, 0.96f);
     private static readonly Color ProceedButtonColor = new(0.75f, 0.60f, 0.16f, 1f);
     private static readonly Color ProceedButtonHoverColor = new(0.85f, 0.69f, 0.20f, 1f);
     private static readonly Color ProceedButtonDisabledColor = new(0.38f, 0.38f, 0.38f, 1f);
@@ -62,6 +64,7 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
     private Button? _autofillButton;
     private Button? _proceedButton;
     private CheckBox? _useTestMapToggle;
+    private HBoxContainer? _participantList;
     private AiTeammateSessionState? _sessionState;
     private AiTeammateLoopbackHostGameService? _loopbackService;
     private StartRunLobby? _lobby;
@@ -210,13 +213,14 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
         var slotsScroll = new ScrollContainer
         {
             Name = "AiTeammateSlotsScroll",
-            MouseFilter = MouseFilterEnum.Stop
+            MouseFilter = MouseFilterEnum.Stop,
+            ClipContents = true
         };
         slotsScroll.SetAnchorsPreset(LayoutPreset.TopWide);
         slotsScroll.OffsetLeft = 42f;
         slotsScroll.OffsetTop = 136f;
         slotsScroll.OffsetRight = -42f;
-        slotsScroll.OffsetBottom = 382f;
+        slotsScroll.OffsetBottom = 392f;
         contentPanel.AddChild(slotsScroll);
 
         var slotsGrid = new GridContainer
@@ -241,14 +245,15 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
 
     private Button CreateSlotButton(int slotIndex, string title, string subtitle, bool allowPicker)
     {
+        bool compactLayout = _maxPlayerCount > AiTeammateLobbyLimitSupport.VanillaPlayerLimit;
         var slotButton = new Button
         {
             Name = $"PlayerSlot{slotIndex}",
-            CustomMinimumSize = _maxPlayerCount <= 4 ? new Vector2(210f, 220f) : new Vector2(178f, 196f),
+            CustomMinimumSize = compactLayout ? new Vector2(178f, 122f) : new Vector2(210f, 220f),
             FocusMode = FocusModeEnum.All
         };
         slotButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        slotButton.SizeFlagsVertical = SizeFlags.ExpandFill;
+        slotButton.SizeFlagsVertical = SizeFlags.Fill;
         slotButton.AddThemeStyleboxOverride("normal", CreatePanelStyle(SlotColor, SlotBorderColor, 3, 18));
         slotButton.AddThemeStyleboxOverride("hover", CreatePanelStyle(SlotHoverColor, DividerColor, 3, 18));
         slotButton.AddThemeStyleboxOverride("pressed", CreatePanelStyle(SlotPressedColor, DividerColor, 3, 18));
@@ -279,10 +284,10 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
             MouseFilter = MouseFilterEnum.Ignore
         };
         content.SetAnchorsPreset(LayoutPreset.FullRect);
-        content.AddThemeConstantOverride("margin_left", 14);
-        content.AddThemeConstantOverride("margin_top", 14);
-        content.AddThemeConstantOverride("margin_right", 14);
-        content.AddThemeConstantOverride("margin_bottom", 14);
+        content.AddThemeConstantOverride("margin_left", compactLayout ? 8 : 14);
+        content.AddThemeConstantOverride("margin_top", compactLayout ? 8 : 14);
+        content.AddThemeConstantOverride("margin_right", compactLayout ? 8 : 14);
+        content.AddThemeConstantOverride("margin_bottom", compactLayout ? 8 : 14);
         slotButton.AddChild(content);
 
         var stack = new VBoxContainer
@@ -290,12 +295,12 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
             MouseFilter = MouseFilterEnum.Ignore
         };
         stack.SetAnchorsPreset(LayoutPreset.FullRect);
-        stack.AddThemeConstantOverride("separation", 12);
+        stack.AddThemeConstantOverride("separation", compactLayout ? 5 : 12);
         content.AddChild(stack);
 
         var portraitPanel = new Panel
         {
-            CustomMinimumSize = _maxPlayerCount <= 4 ? new Vector2(0f, 138f) : new Vector2(0f, 112f),
+            CustomMinimumSize = compactLayout ? new Vector2(0f, 58f) : new Vector2(0f, 138f),
             MouseFilter = MouseFilterEnum.Ignore
         };
         portraitPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle(PortraitPanelColor, SlotBorderColor, 2, 14));
@@ -330,8 +335,8 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
             VerticalAlignment = VerticalAlignment.Center,
             MouseFilter = MouseFilterEnum.Ignore
         };
-        titleLabel.CustomMinimumSize = new Vector2(0f, 34f);
-        titleLabel.AddThemeFontSizeOverride("font_size", 21);
+        titleLabel.CustomMinimumSize = compactLayout ? new Vector2(0f, 22f) : new Vector2(0f, 34f);
+        titleLabel.AddThemeFontSizeOverride("font_size", compactLayout ? 17 : 21);
         stack.AddChild(titleLabel);
         _slotTitles[slotIndex] = titleLabel;
 
@@ -343,7 +348,8 @@ public partial class AiTeammateCharacterSetupScreen : NSubmenu, IStartRunLobbyLi
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MouseFilter = MouseFilterEnum.Ignore
         };
-        subtitleLabel.CustomMinimumSize = new Vector2(0f, 54f);
+        subtitleLabel.CustomMinimumSize = compactLayout ? new Vector2(0f, 22f) : new Vector2(0f, 54f);
+        subtitleLabel.AddThemeFontSizeOverride("font_size", compactLayout ? 13 : 16);
         subtitleLabel.Modulate = new Color(0.88f, 0.93f, 0.97f, 0.85f);
         stack.AddChild(subtitleLabel);
         _slotSubtitles[slotIndex] = subtitleLabel;

@@ -199,7 +199,7 @@
 - Patch points: AI setup screen slot layout, session creation, and `StartRunLobby` construction.
 - Decision: detect `RemoveMultiplayerPlayerLimit` by reading its loaded `ProtocolConfig.TargetPlayerLimit` via reflection, falling back to `mods/RemoveMultiplayerPlayerLimit/config.ini`, then vanilla 4-player behavior if the mod is absent.
 - Reasoning: RMP owns the actual multiplayer protocol and in-game room layout patches. The AI teammate mod only needs to stop hardcoding 4 player slots and request the same max player count from the lobby.
-- UI policy: the setup screen now uses a scrollable slot grid so 8-16 player lobbies remain selectable without widening the page.
+- UI policy: the setup screen now uses a compact scrollable slot grid so 8-16 player lobbies remain selectable without widening the page. The session panel uses clipped participant chips instead of duplicating the vanilla remote player container, because the vanilla row can overflow horizontally at 8 players.
 - Autofill policy: `Autofill Bots` fills all empty AI slots by cycling through the available placeholder characters; the host slot remains user-controlled.
 - Session policy: `AiTeammateSessionState` now accepts all selected AI slot indices instead of only slots 1-3.
 - Verification: with RMP configured to 8 or more players, autofill should create more than 3 AI teammates and `Proceed` should start a lobby with the detected `maxPlayers`.
