@@ -21,7 +21,7 @@ internal static class AiRunTelemetryService
         WriteIndented = true
     };
 
-    private static readonly string RunId = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..25];
+    private static string _runId = CreateRunId();
     private static readonly Dictionary<ulong, AiTelemetryPlayerReport> Players = new();
     private static readonly List<AiTelemetryDecisionRecord> Decisions = [];
     private static bool _abandoned;
@@ -372,6 +372,7 @@ internal static class AiRunTelemetryService
         try
         {
             AiTelemetryRunFile file;
+            string flushedRunId;
             lock (Sync)
             {
                 foreach (AiTelemetryPlayerReport report in Players.Values)
@@ -382,20 +383,30 @@ internal static class AiRunTelemetryService
                 file = new AiTelemetryRunFile
                 {
                     SchemaVersion = SchemaVersion,
-                    RunId = RunId,
+                    RunId = _runId,
                     CreatedAtUtc = DateTime.UtcNow,
                     FlushReason = reason,
                     Abandoned = _abandoned,
                     PlayerReports = Players.Values.OrderBy(static player => player.PlayerId).ToList(),
                     Decisions = Decisions.ToList()
                 };
+                flushedRunId = _runId;
             }
 
             Directory.CreateDirectory(GetTelemetryRunsDirectoryPath());
-            string runPath = Path.Combine(GetTelemetryRunsDirectoryPath(), $"{RunId}.json");
+            string runPath = Path.Combine(GetTelemetryRunsDirectoryPath(), $"{flushedRunId}.json");
             File.WriteAllText(runPath, JsonSerializer.Serialize(file, JsonOptions));
             File.WriteAllText(GetLatestSummaryPath(), JsonSerializer.Serialize(BuildLatestSummary(file), JsonOptions));
-            Log.Info($"[AITeammate][Telemetry] Flushed run telemetry players={file.PlayerReports.Count} decisions={file.Decisions.Count} reason={reason} path={runPath}");
+
+            lock (Sync)
+            {
+                if (string.Equals(_runId, flushedRunId, StringComparison.Ordinal))
+                {
+                    ResetInMemoryRun();
+                }
+            }
+
+            Log.Info($"[AITeammate][Telemetry] Flushed run telemetry players={file.PlayerReports.Count} decisions={file.Decisions.Count} reason={reason} path={runPath} nextRun={_runId}");
         }
         catch (Exception ex)
         {
@@ -687,6 +698,19 @@ internal static class AiRunTelemetryService
     private static string GetLatestSummaryPath()
     {
         return Path.Combine(GetTelemetryDirectoryPath(), "latest-summary.json");
+    }
+
+    private static string CreateRunId()
+    {
+        return $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..25];
+    }
+
+    private static void ResetInMemoryRun()
+    {
+        Players.Clear();
+        Decisions.Clear();
+        _abandoned = false;
+        _runId = CreateRunId();
     }
 
 }

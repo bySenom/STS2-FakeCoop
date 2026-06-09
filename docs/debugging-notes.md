@@ -190,10 +190,12 @@
 - Card rewards, relic choices, upgrades, rest sites, shop steps, potion rewards, and combat completion should also log `[AITeammate][Telemetry] ...`.
 - End or abandon the run.
 - Expected result: cleanup logs `[AITeammate][Telemetry] Flushed run telemetry`.
+- Expected result: the flush log includes `nextRun=...`; the next test run starts with a fresh telemetry run id and empty in-memory counters.
 - Expected files are written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/latest-summary.json` and `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/<runId>.json`.
 - Check `latest-summary.json` first. It lists each player, build, deck size, upgrade/heal counts, card picks/skips, shop removals, HP, and `probableIssues`.
 - Full run files include diagnosis notes inside combat decision `notes`; use these to count repeated rotation mistakes across runs.
 - Useful issue flags include `possible_block_shortage`, `possible_scaling_shortage_for_bosses`, `death_with_unused_potions`, `frequent_end_turn_with_energy`, `starter_strikes_still_used_often`, and `active_build_missing_many_core_cards`.
+- If one player id shows multiple unrelated `characterId` values inside one run file, treat that file as stale/mixed telemetry from an older build rather than clean combat evidence.
 
 ## Silent Strength Check
 
