@@ -83,6 +83,7 @@
 - Expected result: a normal multiplayer lobby with another human player should not require the friend to install this mod just because the local player has host auto-mode available.
 - Press `F4` during a normal multiplayer run with no AI teammate session.
 - Expected result: logs show `[AITeammate][AutoMode] Host auto-mode enabled` with `mode=local`, and the local player starts using the bot controller.
+- Expected result: after a local auto-mode combat action, logs can show `treating local multiplayer request as issued`; the controller should continue without needing repeated F4 toggles.
 - Expected result: the first auto-mode tick should not print a long stacktrace burst from card description localization; unsupported formatted strings should fall back to raw loc text.
 - The AI teammate setup still creates local fake multiplayer runs and is not meant for a real human multiplayer lobby.
 - Runtime learning and telemetry JSON files should be written under `%APPDATA%/SlayTheSpire2/sts2AITeammate/`, not under `mods/sts2AITeammate/config/`, because STS2 scans JSON files in `mods/` as possible mod manifests.

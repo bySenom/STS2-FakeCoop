@@ -555,14 +555,23 @@ internal sealed partial class AiTeammateDummyController
 
     private void BeginIssuedActionSettlement(AiTeammateAvailableAction action, AiActionExecutionResult executionResult)
     {
+        bool requestOnlyMultiplayerAction = IsRequestOnlyLocalMultiplayerAutoModeAction();
         _pendingIssuedActionSettlement = new PendingIssuedActionSettlement
         {
             ActionId = action.ActionId,
             ActionType = action.ActionType,
             GameAction = executionResult.GameAction!,
             IssuedAtUtc = DateTime.UtcNow,
-            WaitForQueueSettle = executionResult.WaitForQueueSettle
+            WaitForQueueSettle = executionResult.WaitForQueueSettle,
+            ActionCompleted = requestOnlyMultiplayerAction,
+            ActionCompletedAtUtc = requestOnlyMultiplayerAction ? DateTime.UtcNow : null,
+            WasRequestOnlyMultiplayerAction = requestOnlyMultiplayerAction
         };
+
+        if (requestOnlyMultiplayerAction)
+        {
+            Log.Info($"[AITeammate] Player={PlayerId} treating local multiplayer request as issued actionId={action.ActionId}; waiting for synchronized queue instead of request CompletionTask.");
+        }
     }
 
     private bool TryWaitForIssuedActionSettlement()
@@ -678,6 +687,17 @@ internal sealed partial class AiTeammateDummyController
         return true;
     }
 
+    private bool IsRequestOnlyLocalMultiplayerAutoModeAction()
+    {
+        object? netService = RunManager.Instance.NetService;
+        return AiTeammateSessionRegistry.Current == null &&
+               AiTeammateHostAutoMode.IsEnabled &&
+               netService != null &&
+               netService is not AiTeammateLoopbackHostGameService &&
+               RunManager.Instance.DebugOnlyGetState()?.GetPlayer(PlayerId) is { } player &&
+               AiTeammateHostAutoMode.IsAutoControlled(player);
+    }
+
     private static string DescribeTrackedAction(GameAction action)
     {
         return $"{action.GetType().Name}:{action.State}";
@@ -715,5 +735,7 @@ internal sealed partial class AiTeammateDummyController
         public int? CompletedEndTurnRound { get; set; }
 
         public bool WasTimeoutFallback { get; set; }
+
+        public bool WasRequestOnlyMultiplayerAction { get; init; }
     }
 }
