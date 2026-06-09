@@ -225,3 +225,11 @@
 - Expected result: all empty AI slots are filled by cycling through the available placeholder characters.
 - Press `Proceed`.
 - Expected result: logs show `Created StartRunLobby maxPlayers=... requested=...`, and the run starts with more than 3 AI teammates when RMP is installed and configured above 4.
+
+## Host Auto-Mode Foreground Reward Check
+
+- Enable host Auto-Mode with `F4`, then choose a reward/event that opens a foreground loot choice such as `Add a card to your deck`.
+- Expected result: logs show `[AITeammate][AutoMode] Pausing host controller during foreground reward resolution` before the reward is processed.
+- Expected result: Auto-Mode should pick/skip the card reward using the normal build scoring, or leave the reward manual if the game does not expose rewards in time.
+- Expected result: after resolution, logs show `[AITeammate][AutoMode] Resuming host controller after foreground reward resolution`.
+- If the loot button remains visible and unclickable, check for repeated `[AITeammate][Event] Executing fallback event option` lines while the foreground reward is open; that means the host controller is still re-entering the event path.

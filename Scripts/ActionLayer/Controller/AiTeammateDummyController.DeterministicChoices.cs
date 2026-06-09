@@ -286,6 +286,7 @@ internal sealed partial class AiTeammateDummyController
         try
         {
             using IDisposable selectorScope = PushDeterministicCardSelector();
+            using IDisposable rewardScope = AiTeammateHostAutoMode.BeginForegroundRewardResolution(rewardsSet.Player);
             Log.Info($"[AITeammate][AutoMode] Waiting for foreground reward UI player={rewardsSet.Player.NetId} room={rewardsSet.Room?.GetType().Name ?? "Custom"}");
             await Task.Delay(ForegroundRewardInitialDelay);
 

@@ -222,13 +222,29 @@ internal sealed partial class AiTeammateDummyController
             uint pageIndex = EventPageIndexField?.GetValue(synchronizer) is uint currentPageIndex
                 ? currentPageIndex
                 : 0u;
-            EventVoteForSharedOptionMethod?.Invoke(synchronizer, new object[] { player, (uint)optionIndex, pageIndex });
-            await Task.CompletedTask;
+            object? result = EventVoteForSharedOptionMethod?.Invoke(synchronizer, new object[] { player, (uint)optionIndex, pageIndex });
+            await AwaitEventSelectionResultAsync(result);
             return;
         }
 
-        EventChooseOptionForEventMethod?.Invoke(synchronizer, new object[] { player, optionIndex });
-        await Task.CompletedTask;
+        object? chooseResult = EventChooseOptionForEventMethod?.Invoke(synchronizer, new object[] { player, optionIndex });
+        await AwaitEventSelectionResultAsync(chooseResult);
+    }
+
+    private static async Task AwaitEventSelectionResultAsync(object? result)
+    {
+        switch (result)
+        {
+            case Task<bool> boolTask:
+                await boolTask;
+                return;
+            case Task task:
+                await task;
+                return;
+            default:
+                await Task.Delay(250);
+                return;
+        }
     }
 
     private static async Task ChooseRestSiteOptionAsync(RestSiteSynchronizer synchronizer, Player player, int optionIndex)

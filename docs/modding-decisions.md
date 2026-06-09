@@ -216,3 +216,12 @@
 - Autofill policy: `Autofill Bots` fills all empty AI slots by cycling through the available placeholder characters; the host slot remains user-controlled.
 - Session policy: `AiTeammateSessionState` now accepts all selected AI slot indices instead of only slots 1-3.
 - Verification: with RMP configured to 8 or more players, autofill should create more than 3 AI teammates and `Proceed` should start a lobby with the detected `maxPlayers`.
+
+## Host Auto-Mode Foreground Rewards
+
+- Patch points: `RewardsSet.Offer`, `AiTeammateDummyController.ResolveForegroundAutoModeRewardsAsync`, and event option execution.
+- Decision: while host Auto-Mode is resolving a foreground reward UI, the normal host controller tick is paused for that player.
+- Reasoning: event rewards such as `Kaleidoscope` can open loot choices like `Add a card to your deck` before the event page visibly advances. If Auto-Mode immediately replans, it can re-enter the event path and block or race the foreground reward UI.
+- Execution policy: event option reflection calls now await returned `Task`/`Task<bool>` results when the game exposes them, with a short settle delay for synchronous calls.
+- Reward policy: the existing card/relic/potion scoring remains unchanged; this only prevents background event/controller actions from interfering with a visible reward choice.
+- Verification: foreground rewards should log pause/resume around automatic reward resolution, and repeated fallback event option logs should stop while the reward window is open.

@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Logging;
@@ -10,6 +11,8 @@ namespace AITeammate.Scripts;
 internal static class AiTeammateHostAutoMode
 {
     private static readonly TimeSpan ToggleCooldown = TimeSpan.FromMilliseconds(750);
+    private static readonly HashSet<ulong> ForegroundRewardPlayers = [];
+    private static readonly object ForegroundRewardLock = new();
     private static AiTeammateDummyController? _hostController;
     private static ulong? _hostControllerPlayerId;
     private static bool _wasTogglePressed;
@@ -26,8 +29,14 @@ internal static class AiTeammateHostAutoMode
             return;
         }
 
-        HandleToggleInput(TryResolveLocalPlayerId() ?? 0UL, mode: "local");
+        ulong? localPlayerId = TryResolveLocalPlayerId();
+        HandleToggleInput(localPlayerId ?? 0UL, mode: "local");
         if (!IsEnabled)
+        {
+            return;
+        }
+
+        if (localPlayerId.HasValue && IsForegroundRewardResolutionActive(localPlayerId.Value))
         {
             return;
         }
@@ -40,6 +49,11 @@ internal static class AiTeammateHostAutoMode
     {
         HandleToggleInput(session.HostPlayerId, mode: "session");
         if (!IsEnabled)
+        {
+            return;
+        }
+
+        if (IsForegroundRewardResolutionActive(session.HostPlayerId))
         {
             return;
         }
@@ -112,6 +126,35 @@ internal static class AiTeammateHostAutoMode
         _hostControllerPlayerId = null;
         _wasTogglePressed = false;
         _nextToggleAllowedAtUtc = DateTime.MinValue;
+        lock (ForegroundRewardLock)
+        {
+            ForegroundRewardPlayers.Clear();
+        }
+    }
+
+    public static IDisposable BeginForegroundRewardResolution(Player player)
+    {
+        ulong playerId = player.NetId;
+        bool added;
+        lock (ForegroundRewardLock)
+        {
+            added = ForegroundRewardPlayers.Add(playerId);
+        }
+
+        if (added)
+        {
+            Log.Info($"[AITeammate][AutoMode] Pausing host controller during foreground reward resolution player={playerId}");
+        }
+
+        return new ForegroundRewardScope(playerId, added);
+    }
+
+    public static bool IsForegroundRewardResolutionActive(ulong playerId)
+    {
+        lock (ForegroundRewardLock)
+        {
+            return ForegroundRewardPlayers.Contains(playerId);
+        }
     }
 
     private static void HandleToggleInput(ulong playerId, string mode)
@@ -208,5 +251,31 @@ internal static class AiTeammateHostAutoMode
         }
 
         return AiTeammateRuntimeCharacterResolver.TryResolveCharacterModel(player);
+    }
+
+    private sealed class ForegroundRewardScope(ulong playerId, bool ownsScope) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            if (!ownsScope)
+            {
+                return;
+            }
+
+            lock (ForegroundRewardLock)
+            {
+                ForegroundRewardPlayers.Remove(playerId);
+            }
+
+            Log.Info($"[AITeammate][AutoMode] Resuming host controller after foreground reward resolution player={playerId}");
+        }
     }
 }
