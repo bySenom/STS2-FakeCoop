@@ -144,7 +144,7 @@ internal static class AiRunTelemetryService
     {
         try
         {
-            AiTelemetryDecisionRecord record = BuildChoiceRecord(player, "card_choice", source);
+            AiTelemetryDecisionRecord record = BuildChoiceRecord(player, "card_choice", source, decision.ActiveBuildId);
             record.PickedId = selected?.Id.Entry ?? "skip";
             record.PickedName = selected?.Title?.ToString() ?? record.PickedId;
             record.Score = decision.BestEvaluation?.FinalScore ?? 0d;
@@ -414,7 +414,11 @@ internal static class AiRunTelemetryService
         }
     }
 
-    private static AiTelemetryDecisionRecord BuildChoiceRecord(Player player, string type, string source)
+    private static AiTelemetryDecisionRecord BuildChoiceRecord(
+        Player player,
+        string type,
+        string source,
+        string? activeBuildId = null)
     {
         return new AiTelemetryDecisionRecord
         {
@@ -424,7 +428,7 @@ internal static class AiRunTelemetryService
             Act = player.RunState.CurrentActIndex + 1,
             Floor = player.RunState.TotalFloor,
             RoomType = player.RunState.CurrentRoom?.GetType().Name ?? "unknown",
-            ActiveBuildId = "unknown",
+            ActiveBuildId = activeBuildId ?? "unknown",
             Role = source,
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -479,6 +483,10 @@ internal static class AiRunTelemetryService
         {
             notes.Add(decision.SkipReason ?? "skipped");
         }
+
+        notes.Add(decision.ActiveBuildLocked
+            ? $"active_build={decision.ActiveBuildId}:locked"
+            : $"active_build={decision.ActiveBuildId}");
 
         foreach (CardEvaluationResult result in decision.RankedResults.Take(3))
         {

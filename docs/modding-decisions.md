@@ -226,3 +226,12 @@
 - Reward policy: the existing card/relic/potion scoring remains unchanged; this only prevents background event/controller actions from interfering with a visible reward choice.
 - Potion policy: potion rewards are intercepted for AI/host Auto-Mode players before the game's original `PotionReward.OnSelect` runs. The AI checks open slots first, replaces only when the incoming potion clearly beats the weakest held potion, and otherwise logs a skip instead of letting the game throw on a full potion slot.
 - Verification: foreground rewards should log pause/resume around automatic reward resolution, and repeated fallback event option logs should stop while the reward window is open.
+
+## Reward and Combat Synergy Context
+
+- Patch points: `CardEvaluationContextFactory`, `CardChoiceDecision`, `AiRunTelemetryService`, `CardResolver`, and `CombatActionScorer`.
+- Decision: card reward decisions now carry the active build detected from the current deck, and telemetry records that build id instead of writing `unknown` for every reward.
+- Reasoning: build/synergy tuning is hard to validate when reward records lose the active deck archetype. The evaluator already sees the deck; the decision record now preserves that context for logs and future learning.
+- Semantic policy: cards with weak or empty parsed text semantics can receive inferred setup effects by name. Current examples include Defect orb cards (`LightningOrb`, `FrostOrb`, `DarkOrb`, `OrbEvoke`, `OrbSlot`, `Focus`), Regent star cards (`Star`), Necrobinder support (`OstyGuard`, `Soul`), and generic unknown setup for self-targeted skill/power cards with no parsed value.
+- Combat policy: affordable build setup is scored higher, and weak starter Strikes are penalized when a build setup card is still playable and there is no lethal or survival emergency.
+- Verification: reward telemetry should show concrete `activeBuildId`; combat resolver logs should stop showing empty effects for key setup cards; starter Strikes should lose to `Zap`, `Venerate`, `Bodyguard`, core powers, and similar setup cards when the turn is safe.

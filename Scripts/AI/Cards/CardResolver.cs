@@ -96,6 +96,7 @@ internal sealed class CardResolver : ICardResolver
         }
 
         IReadOnlyList<NormalizedEffectDescriptor> effects = ResolveEffects(entry.SemanticProfile.Effects, entry.UpgradeSpec, isUpgraded, runOverlay, combatOverlay);
+        effects = AddInferredSemanticEffects(effects, entry.CardId, entry.Name, entry.BaseDescription, entry.Type, entry.TargetType);
         return new ResolvedCardView
         {
             CardInstanceId = cardInstanceId,
@@ -154,6 +155,7 @@ internal sealed class CardResolver : ICardResolver
         }
 
         IReadOnlyList<NormalizedEffectDescriptor> effects = ResolveEffects(definition.Effects, definition.UpgradeSpec, isUpgraded, runOverlay, combatOverlay);
+        effects = AddInferredSemanticEffects(effects, definition.CardId, definition.Name, definition.Description, definition.Type, definition.Targeting);
         return new ResolvedCardView
         {
             CardInstanceId = cardInstanceId,
@@ -213,6 +215,107 @@ internal sealed class CardResolver : ICardResolver
         }
 
         return resolved;
+    }
+
+    private static IReadOnlyList<NormalizedEffectDescriptor> AddInferredSemanticEffects(
+        IReadOnlyList<NormalizedEffectDescriptor> baseEffects,
+        string cardId,
+        string name,
+        string description,
+        CardType cardType,
+        TargetType targetType)
+    {
+        List<NormalizedEffectDescriptor> effects = baseEffects.ToList();
+        string text = $"{cardId} {name} {description}";
+
+        if (MatchesToken(text, "ZAP", "BALLLIGHTNING", "LIGHTNINGORB", "CHANNEL1LIGHTNING"))
+        {
+            AddPowerIfMissing(effects, "LightningOrb", amount: 1);
+        }
+
+        if (MatchesToken(text, "COLDSNAP", "COOLHEADED", "GLACIER", "CHILL", "FROSTORB", "CHANNEL1FROST"))
+        {
+            AddPowerIfMissing(effects, "FrostOrb", amount: 1);
+        }
+
+        if (MatchesToken(text, "DARKNESS", "DOOMANDGLOOM", "DARKORB", "CHANNEL1DARK"))
+        {
+            AddPowerIfMissing(effects, "DarkOrb", amount: 1);
+        }
+
+        if (MatchesToken(text, "DUALCAST", "MULTICAST"))
+        {
+            AddPowerIfMissing(effects, "OrbEvoke", amount: MatchesToken(text, "DUALCAST") ? 2 : 1);
+        }
+
+        if (MatchesToken(text, "CAPACITOR"))
+        {
+            AddPowerIfMissing(effects, "OrbSlot", amount: 2);
+        }
+
+        if (MatchesToken(text, "DEFRA", "FOCUS"))
+        {
+            AddPowerIfMissing(effects, "Focus", amount: 1);
+        }
+
+        if (MatchesToken(text, "VENERATE", "GUIDINGSTAR", "STARDUST", "CONVERGENCE"))
+        {
+            AddPowerIfMissing(effects, "Star", amount: 1);
+        }
+
+        if (MatchesToken(text, "FALLINGSTAR"))
+        {
+            AddPowerIfMissing(effects, "Star", amount: 1);
+        }
+
+        if (MatchesToken(text, "BODYGUARD"))
+        {
+            AddPowerIfMissing(effects, "OstyGuard", amount: 1, targetScope: TargetScope.SingleAlly);
+        }
+
+        if (MatchesToken(text, "BORROWEDTIME", "RIGHTHANDHAND", "SOUL"))
+        {
+            AddPowerIfMissing(effects, "Soul", amount: 1);
+        }
+
+        if (effects.Count == baseEffects.Count &&
+            effects.Count == 0 &&
+            cardType is CardType.Skill or CardType.Power &&
+            targetType is TargetType.Self or TargetType.None)
+        {
+            AddPowerIfMissing(effects, "UnknownSetup", amount: 1);
+        }
+
+        return effects;
+    }
+
+    private static void AddPowerIfMissing(
+        List<NormalizedEffectDescriptor> effects,
+        string powerId,
+        int amount,
+        TargetScope targetScope = TargetScope.Self)
+    {
+        if (effects.Any(effect => effect.Kind == EffectKind.ApplyPower &&
+                                  string.Equals(effect.AppliedPowerId, powerId, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        effects.Add(new NormalizedEffectDescriptor
+        {
+            Kind = EffectKind.ApplyPower,
+            TargetScope = targetScope,
+            Amount = amount,
+            AppliedPowerId = powerId,
+            DurationHint = DurationHint.Persistent,
+            ValueTiming = ValueTiming.Setup
+        });
+    }
+
+    private static bool MatchesToken(string value, params string[] tokens)
+    {
+        string normalized = AiBuildProfileAnalyzer.Normalize(value);
+        return tokens.Any(token => normalized.Contains(AiBuildProfileAnalyzer.Normalize(token), StringComparison.Ordinal));
     }
 
     private static void ApplyEffectAdjustments(

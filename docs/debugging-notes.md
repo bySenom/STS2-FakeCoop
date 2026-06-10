@@ -234,3 +234,11 @@
 - Expected result: after resolution, logs show `[AITeammate][AutoMode] Resuming host controller after foreground reward resolution`.
 - If the loot button remains visible and unclickable, check for repeated `[AITeammate][Event] Executing fallback event option` lines while the foreground reward is open; that means the host controller is still re-entering the event path.
 - If a potion reward appears while potion slots are full, expected result is a logged replacement or `skipped_no_slot_no_better_replacement`, not `Slot already contains a potion`.
+
+## Reward Synergy Context Check
+
+- After a card reward, inspect the run telemetry file under `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/`.
+- Expected result: `card_choice` records should have `activeBuildId` set to the detected build id or `none`; they should no longer stay at `unknown`.
+- Expected result: card choice notes include `active_build=<id>` and `:locked` when the deck has locked into a build.
+- In combat logs, cards such as `ZAP`, `DUALCAST`, `BODYGUARD`, and `VENERATE` should no longer resolve as `effects=[]`; expected inferred effects include `LightningOrb`, `OrbEvoke`, `OstyGuard`, or `Star`.
+- If a starter `Strike` beats an affordable setup card without lethal or survival pressure, compare `Semantic score ... setup=... build=...` before changing weights again.

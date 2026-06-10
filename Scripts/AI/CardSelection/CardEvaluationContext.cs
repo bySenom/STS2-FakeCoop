@@ -13,6 +13,8 @@ internal sealed class CardEvaluationContext
 
     public required DeckSummary DeckSummary { get; init; }
 
+    public AiBuildProfileMatch? ActiveBuild { get; init; }
+
     public required IReadOnlySet<string> RelicIds { get; init; }
 
     public required IReadOnlySet<string> ModifierIds { get; init; }

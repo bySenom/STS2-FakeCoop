@@ -378,6 +378,25 @@ internal sealed class CombatActionScorer
             }
         }
 
+        if (CombatBuildRoleEvaluator.IsEngineSetup(context, card))
+        {
+            score += context.ActiveBuild?.IsLocked == true ? 54 : 38;
+            if (context.Energy >= action.EnergyCost.GetValueOrDefault(card.EffectiveCost))
+            {
+                score += 12;
+            }
+        }
+
+        if (CombatBuildRoleEvaluator.IsOstyGuardCard(card) && context.ActiveBuild?.Profile.BuildId == "osty")
+        {
+            score += context.ActiveBuild.IsLocked ? 44 : 30;
+        }
+
+        if (CombatBuildRoleEvaluator.Classify(context, card) == CombatBuildRole.Setup)
+        {
+            score += context.ActiveBuild?.IsLocked == true ? 18 : 10;
+        }
+
         return score;
     }
 
@@ -689,6 +708,12 @@ internal sealed class CombatActionScorer
         }
 
         if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
+            ShouldPreferAffordableBuildSetupOverStarterStrike(context, action, card))
+        {
+            score -= active.IsLocked ? 64 : 42;
+        }
+
+        if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
             HasAffordableHigherBuildDamageAction(context, action, card.GetEstimatedDamage()))
         {
             score -= active.IsLocked ? 48 : 34;
@@ -962,6 +987,47 @@ internal sealed class CombatActionScorer
         return false;
     }
 
+    private static bool ShouldPreferAffordableBuildSetupOverStarterStrike(
+        DeterministicCombatContext context,
+        AiLegalActionOption currentAction,
+        ResolvedCardView currentCard)
+    {
+        if (context.ActiveBuild == null ||
+            !CombatBuildRoleEvaluator.IsWeakStarterStrike(currentCard) ||
+            CanActionLikelyKill(context, currentAction, currentCard) ||
+            HasSurvivalEmergency(context))
+        {
+            return false;
+        }
+
+        foreach (AiLegalActionOption candidate in context.LegalActions)
+        {
+            if (string.Equals(candidate.ActionId, currentAction.ActionId, StringComparison.Ordinal) ||
+                !IsAffordableAtEnergy(context, candidate, context.Energy))
+            {
+                continue;
+            }
+
+            ResolvedCardView? card = ResolveCard(context, candidate);
+            if (card == null || CombatBuildRoleEvaluator.IsWeakStarterStrike(card))
+            {
+                continue;
+            }
+
+            CombatBuildRole role = CombatBuildRoleEvaluator.Classify(context, card);
+            if (role == CombatBuildRole.Setup ||
+                CombatBuildRoleEvaluator.IsEngineSetup(context, card) ||
+                CombatBuildRoleEvaluator.IsCoreBuildPower(context, card) ||
+                CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card) ||
+                CombatBuildRoleEvaluator.IsOstyGuardCard(card))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool HasUnplayedAffordableNonSoulAction(DeterministicCombatContext context, AiLegalActionOption currentAction)
     {
         foreach (AiLegalActionOption candidate in context.LegalActions)
@@ -1049,6 +1115,35 @@ internal sealed class CombatActionScorer
         }
 
         return false;
+    }
+
+    private static bool CanActionLikelyKill(
+        DeterministicCombatContext context,
+        AiLegalActionOption action,
+        ResolvedCardView card)
+    {
+        int damage = card.GetEstimatedDamage();
+        if (damage <= 0)
+        {
+            return false;
+        }
+
+        if (IsAllEnemiesDamage(card))
+        {
+            return context.EnemiesById.Any(pair =>
+                damage >= GetTeamAdjustedEnemyHp(context, pair.Key, pair.Value));
+        }
+
+        return !string.IsNullOrEmpty(action.TargetId) &&
+               context.EnemiesById.TryGetValue(action.TargetId, out DeterministicEnemyState? enemy) &&
+               damage >= GetTeamAdjustedEnemyHp(context, action.TargetId, enemy);
+    }
+
+    private static bool HasSurvivalEmergency(DeterministicCombatContext context)
+    {
+        int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
+        return uncoveredDamage >= context.CurrentHp ||
+               uncoveredDamage >= Math.Max(12, context.CurrentHp / 3);
     }
 
     private static bool IsBuildRelevantDamageCard(DeterministicCombatContext context, ResolvedCardView card)

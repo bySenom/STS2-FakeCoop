@@ -24,6 +24,7 @@ internal sealed class CardEvaluationContextFactory
         List<ResolvedCardView> deckCards = player.Deck.Cards
             .Select((card, index) => _cardResolver.Resolve(card, BuildDeckInstanceId(card, index)))
             .ToList();
+        AiBuildProfileMatch? activeBuild = AiBuildProfileAnalyzer.SelectActiveProfile(player, deckCards);
 
         return new CardEvaluationContext
         {
@@ -31,6 +32,7 @@ internal sealed class CardEvaluationContextFactory
             ChoiceSource = source,
             DeckCards = deckCards,
             DeckSummary = DeckSummaryBuilder.Build(deckCards),
+            ActiveBuild = activeBuild,
             RelicIds = player.Relics
                 .Select(static relic => relic.Id.Entry.ToUpperInvariant())
                 .ToHashSet(StringComparer.Ordinal),

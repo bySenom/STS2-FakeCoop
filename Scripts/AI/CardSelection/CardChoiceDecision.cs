@@ -10,6 +10,10 @@ internal sealed class CardChoiceDecision
 
     public required bool ShouldTakeCard { get; init; }
 
+    public string ActiveBuildId { get; init; } = "none";
+
+    public bool ActiveBuildLocked { get; init; }
+
     public string? SkipReason { get; init; }
 
     public CardEvaluationResult? BestEvaluation => RankedResults.Count > 0 ? RankedResults[0] : null;
@@ -18,6 +22,6 @@ internal sealed class CardChoiceDecision
     {
         string best = BestEvaluation?.Describe() ?? "none";
         string skipReason = string.IsNullOrWhiteSpace(SkipReason) ? string.Empty : $" skipReason={SkipReason}";
-        return $"shouldTake={ShouldTakeCard} threshold={SkipThreshold:F1}{skipReason} best={best}";
+        return $"shouldTake={ShouldTakeCard} build={ActiveBuildId}{(ActiveBuildLocked ? ":locked" : string.Empty)} threshold={SkipThreshold:F1}{skipReason} best={best}";
     }
 }

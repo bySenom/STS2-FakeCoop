@@ -35,6 +35,8 @@ internal sealed class CardChoiceEvaluator
             RankedResults = ranked,
             SkipThreshold = skipThreshold,
             ShouldTakeCard = shouldTake,
+            ActiveBuildId = context.ActiveBuild?.Profile.BuildId ?? "none",
+            ActiveBuildLocked = context.ActiveBuild?.IsLocked == true,
             SkipReason = skipReason
         };
     }
