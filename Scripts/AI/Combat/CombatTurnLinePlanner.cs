@@ -33,7 +33,7 @@ internal sealed class CombatTurnLinePlanner
         }
 
         List<LineNode> frontier = actions
-            .OrderByDescending(static action => action.ImmediateScore.TotalScore)
+            .OrderByDescending(action => ScoreInitialBeamCandidate(context, action, actions))
             .ThenBy(static action => action.Action.ActionId, StringComparer.Ordinal)
             .Take(BeamWidth)
             .Select(action => CreateInitialNode(context, action))
@@ -120,6 +120,7 @@ internal sealed class CombatTurnLinePlanner
         bool isOstyGuardCard = CombatBuildRoleEvaluator.IsOstyGuardCard(card);
         bool isSilentSlyEngineCard = CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card);
         bool isSilentShivSetupCard = CombatBuildRoleEvaluator.IsSilentShivSetupCard(card);
+        bool isWeakStarterStrike = CombatBuildRoleEvaluator.IsWeakStarterStrike(card);
 
         if (isOffensivePotion && vulnerable <= 0)
         {
@@ -163,9 +164,61 @@ internal sealed class CombatTurnLinePlanner
             IsSilentSlyEngineCard = isSilentSlyEngineCard,
             IsSilentShivSetupCard = isSilentShivSetupCard,
             IsBlockOnlyDefense = isBlockOnlyDefense,
+            IsWeakStarterStrike = isWeakStarterStrike,
             BuildRole = buildRole,
             ConsumptionKey = BuildConsumptionKey(action)
         };
+    }
+
+    private static int ScoreInitialBeamCandidate(
+        DeterministicCombatContext context,
+        PlannableAction action,
+        IReadOnlyList<PlannableAction> actions)
+    {
+        int score = action.ImmediateScore.TotalScore;
+        bool hasAffordableSetup = actions.Any(candidate =>
+            !ReferenceEquals(candidate, action) &&
+            !candidate.IsEndTurn &&
+            (candidate.IsXCost ? context.Energy > 0 : candidate.EnergyCost <= context.Energy) &&
+            (candidate.IsEngineSetup ||
+             candidate.IsCoreBuildPower ||
+             candidate.IsNecrobinderEarlySoulCard ||
+             candidate.IsSilentSlyEngineCard ||
+             candidate.IsOstyGuardCard ||
+             candidate.BuildRole == CombatBuildRole.Setup ||
+             candidate.CardsDrawn >= 2));
+
+        if (action.IsEngineSetup || action.IsCoreBuildPower)
+        {
+            score += 90;
+        }
+
+        if (action.IsNecrobinderEarlySoulCard || action.IsSilentSlyEngineCard)
+        {
+            score += 85;
+        }
+
+        if (action.IsOstyGuardCard || action.BuildRole == CombatBuildRole.Setup)
+        {
+            score += 55;
+        }
+
+        if (action.CardsDrawn > 0 && context.Energy > action.EnergyCost)
+        {
+            score += action.CardsDrawn * 28;
+        }
+
+        if (action.IsPriorityDrawBlockCard)
+        {
+            score += 30;
+        }
+
+        if (action.IsWeakStarterStrike && hasAffordableSetup)
+        {
+            score -= context.ActiveBuild?.IsLocked == true ? 80 : 55;
+        }
+
+        return score;
     }
 
     private static LineNode CreateInitialNode(DeterministicCombatContext context, PlannableAction action)
@@ -391,6 +444,8 @@ internal sealed class CombatTurnLinePlanner
         public bool IsSilentShivSetupCard { get; init; }
 
         public bool IsBlockOnlyDefense { get; init; }
+
+        public bool IsWeakStarterStrike { get; init; }
 
         public CombatBuildRole BuildRole { get; init; }
     }
@@ -898,7 +953,15 @@ internal sealed class CombatTurnLinePlanner
             bool playedEnginePayoff = ActionIds.Any(actionId =>
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.IsEnginePayoff));
+            bool playedWeakStarterStrike = ActionIds.Any(actionId =>
+                actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
+                                      action.IsWeakStarterStrike));
             int score = hasUnplayedSetup && playedPayoff ? -24 : 0;
+            if (hasUnplayedSetup && playedWeakStarterStrike)
+            {
+                score -= 48;
+            }
+
             if (hasUnplayedCoreBuildPower && playedNonCoreBuildAction)
             {
                 score -= 42;

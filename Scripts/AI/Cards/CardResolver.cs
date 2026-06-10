@@ -258,7 +258,7 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Focus", amount: 1);
         }
 
-        if (MatchesToken(text, "VENERATE", "GUIDINGSTAR", "STARDUST", "CONVERGENCE"))
+        if (MatchesToken(text, "VENERATE", "GUIDINGSTAR", "STARDUST", "CONVERGENCE", "CONQUEROR"))
         {
             AddPowerIfMissing(effects, "Star", amount: 1);
         }
@@ -276,6 +276,11 @@ internal sealed class CardResolver : ICardResolver
         if (MatchesToken(text, "BORROWEDTIME", "RIGHTHANDHAND", "SOUL"))
         {
             AddPowerIfMissing(effects, "Soul", amount: 1);
+        }
+
+        if (MatchesToken(text, "SPOILSMAP", "SPOILSOFBATTLE"))
+        {
+            AddPowerIfMissing(effects, "Spoils", amount: 1);
         }
 
         if (effects.Count == baseEffects.Count &&

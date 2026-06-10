@@ -242,3 +242,5 @@
 - Expected result: card choice notes include `active_build=<id>` and `:locked` when the deck has locked into a build.
 - In combat logs, cards such as `ZAP`, `DUALCAST`, `BODYGUARD`, and `VENERATE` should no longer resolve as `effects=[]`; expected inferred effects include `LightningOrb`, `OrbEvoke`, `OstyGuard`, or `Star`.
 - If a starter `Strike` beats an affordable setup card without lethal or survival pressure, compare `Semantic score ... setup=... build=...` before changing weights again.
+- For follow-up runs, useful counters are `death_with_unused_potions`, `draw_left_while_energy_available`, and starter-Strike decisions with `rank > 1`.
+- `SPOILS_MAP`, `SPOILS_OF_BATTLE`, and `CONQUEROR` should now receive inferred setup effects instead of staying empty.

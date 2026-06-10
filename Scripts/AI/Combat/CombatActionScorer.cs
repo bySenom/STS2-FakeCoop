@@ -498,6 +498,7 @@ internal sealed class CombatActionScorer
         AiPotionCombatUseWeights potionUse = context.CombatConfig.Potions.CombatUse;
         bool isOffensivePotion = IsOffensivePotion(action);
         bool isDefensivePotion = IsDefensivePotion(action);
+        bool isGenericPotion = !isOffensivePotion && !isDefensivePotion;
         bool graveDanger = IsGraveDanger(context);
         int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
         bool underPressure = uncoveredDamage >= 8 || uncoveredDamage >= Math.Max(6, context.CurrentHp / 5);
@@ -508,6 +509,7 @@ internal sealed class CombatActionScorer
             context,
             isOffensivePotion,
             isDefensivePotion,
+            isGenericPotion,
             graveDanger,
             canAmplifyAttacks,
             isHighValueTarget);
@@ -522,6 +524,10 @@ internal sealed class CombatActionScorer
         if (graveDanger)
         {
             score += isDefensivePotion ? potionUse.GraveDangerDefensiveBonus : potionUse.GraveDangerOffensiveBonus;
+            if (isGenericPotion)
+            {
+                score += 150;
+            }
         }
         else if (isDefensivePotion && severePressure)
         {
@@ -534,6 +540,14 @@ internal sealed class CombatActionScorer
         else if (isOffensivePotion && severePressure && canAmplifyAttacks)
         {
             score += context.IsEliteOrBossCombat ? 85 : 55;
+        }
+        else if (isGenericPotion && severePressure)
+        {
+            score += context.IsEliteOrBossCombat ? 90 : 70;
+        }
+        else if (isGenericPotion && underPressure && context.CurrentHp <= Math.Max(18, context.Actor.Creature.MaxHp / 3))
+        {
+            score += 55;
         }
 
         if (isOffensivePotion)
@@ -550,7 +564,7 @@ internal sealed class CombatActionScorer
 
         if (!tacticalNeed)
         {
-            score -= context.IsEliteOrBossCombat ? 70 : 120;
+            score -= context.IsEliteOrBossCombat ? 45 : 85;
         }
 
         if (!string.IsNullOrEmpty(action.TargetId) &&
@@ -574,6 +588,7 @@ internal sealed class CombatActionScorer
         DeterministicCombatContext context,
         bool isOffensivePotion,
         bool isDefensivePotion,
+        bool isGenericPotion,
         bool graveDanger,
         bool canAmplifyAttacks,
         bool isHighValueTarget)
@@ -586,6 +601,11 @@ internal sealed class CombatActionScorer
         int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
         bool underPressure = uncoveredDamage >= 8 || uncoveredDamage >= Math.Max(6, context.CurrentHp / 5);
         if (isDefensivePotion && underPressure)
+        {
+            return true;
+        }
+
+        if (isGenericPotion && underPressure && context.CurrentHp <= Math.Max(18, context.Actor.Creature.MaxHp / 3))
         {
             return true;
         }
