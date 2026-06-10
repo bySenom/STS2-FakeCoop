@@ -503,6 +503,8 @@ internal sealed class CombatActionScorer
         int uncoveredDamage = EstimateUncoveredEndTurnDamage(context);
         bool underPressure = uncoveredDamage >= 8 || uncoveredDamage >= Math.Max(6, context.CurrentHp / 5);
         bool severePressure = uncoveredDamage >= 14 || uncoveredDamage >= Math.Max(8, context.CurrentHp / 3);
+        bool lowHp = context.CurrentHp <= Math.Max(18, context.Actor.Creature.MaxHp / 3);
+        bool wounded = context.CurrentHp <= Math.Max(24, context.Actor.Creature.MaxHp / 2);
         bool canAmplifyAttacks = isOffensivePotion && CountNonPotionAttackActions(context) > 0;
         bool isHighValueTarget = IsHighValuePotionTarget(context, action);
         bool tacticalNeed = HasTacticalPotionNeed(
@@ -560,6 +562,26 @@ internal sealed class CombatActionScorer
             {
                 score += potionUse.NormalFightOffensiveFollowUpBonus;
             }
+        }
+
+        if (tacticalNeed && context.IsEliteOrBossCombat)
+        {
+            score += 35;
+        }
+
+        if (tacticalNeed && wounded && (underPressure || context.IsEliteOrBossCombat))
+        {
+            score += 45;
+        }
+
+        if (severePressure && wounded)
+        {
+            score += 50;
+        }
+
+        if (lowHp && (isGenericPotion || isDefensivePotion))
+        {
+            score += 35;
         }
 
         if (!tacticalNeed)

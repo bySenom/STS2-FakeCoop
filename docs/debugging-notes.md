@@ -202,6 +202,7 @@
 - Full run files include diagnosis notes inside combat decision `notes`; use these to count repeated rotation mistakes across runs.
 - Useful issue flags include `possible_block_shortage`, `possible_scaling_shortage_for_bosses`, `death_with_unused_potions`, `frequent_end_turn_with_energy`, `starter_strikes_still_used_often`, and `active_build_missing_many_core_cards`.
 - If one player id shows multiple unrelated `characterId` values inside one run file, treat that file as stale/mixed telemetry from an older build rather than clean combat evidence.
+- For combat potion tuning, compare `death_with_unused_potions`, `potion_left danger=True`, and combat decisions with `category=Potion` before and after a run. Dangerous elite/boss turns should show earlier potion use instead of saving low-score potions until death.
 
 ## Silent Strength Check
 

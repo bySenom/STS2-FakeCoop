@@ -176,6 +176,7 @@ internal sealed class CombatTurnLinePlanner
         IReadOnlyList<PlannableAction> actions)
     {
         int score = action.ImmediateScore.TotalScore;
+        score += ScoreInitialPotionBeamBonus(context, action);
         bool hasAffordableSetup = actions.Any(candidate =>
             !ReferenceEquals(candidate, action) &&
             !candidate.IsEndTurn &&
@@ -216,6 +217,45 @@ internal sealed class CombatTurnLinePlanner
         if (action.IsWeakStarterStrike && hasAffordableSetup)
         {
             score -= context.ActiveBuild?.IsLocked == true ? 80 : 55;
+        }
+
+        return score;
+    }
+
+    private static int ScoreInitialPotionBeamBonus(DeterministicCombatContext context, PlannableAction action)
+    {
+        if (!action.IsPotion)
+        {
+            return 0;
+        }
+
+        int uncoveredDamage = Math.Max(0, context.TotalBlockableIncomingDamage - context.CurrentBlock);
+        bool severePressure = uncoveredDamage >= 14 || uncoveredDamage >= Math.Max(8, context.CurrentHp / 3);
+        bool lowHp = context.CurrentHp <= Math.Max(18, context.Actor.Creature.MaxHp / 3);
+        int score = 45;
+
+        if (context.IsEliteOrBossCombat)
+        {
+            score += 45;
+        }
+
+        if (severePressure)
+        {
+            score += 55;
+        }
+        else if (uncoveredDamage >= 8)
+        {
+            score += 35;
+        }
+
+        if (lowHp)
+        {
+            score += 45;
+        }
+
+        if (action.IsOffensivePotion && (context.IsEliteOrBossCombat || severePressure))
+        {
+            score += 20;
         }
 
         return score;
@@ -560,7 +600,7 @@ internal sealed class CombatTurnLinePlanner
             next._consumedKeys.Add(action.ConsumptionKey);
             next.BaseScore += action.ImmediateScore.TotalScore;
             next.BaseScore += next.ScoreBuildRotation(context, action);
-            next.BaseScore += next.ScorePotionTiming(action);
+            next.BaseScore += next.ScorePotionTiming(context, action);
             next.EnergyGenerated += action.EnergyGain;
             next.CardsDrawn += action.CardsDrawn;
 
@@ -817,18 +857,42 @@ internal sealed class CombatTurnLinePlanner
             return score;
         }
 
-        private int ScorePotionTiming(PlannableAction action)
+        private int ScorePotionTiming(DeterministicCombatContext context, PlannableAction action)
         {
             if (!action.IsPotion)
             {
                 return 0;
             }
 
+            int incoming = GetBlockableIncomingDamage(context, DamagePreventedByKills, DamagePreventedByWeak);
+            int uncoveredDamage = Math.Max(0, incoming - context.CurrentBlock - TotalBlockGained);
+            bool severePressure = uncoveredDamage >= 14 || uncoveredDamage >= Math.Max(8, context.CurrentHp / 3);
+            bool lowHp = context.CurrentHp <= Math.Max(18, context.Actor.Creature.MaxHp / 3);
             bool isFirstAction = ActionIds.Count <= 1;
-            int score = isFirstAction ? 32 : -28;
+            int score = isFirstAction ? 70 : -10;
+
+            if (context.IsEliteOrBossCombat)
+            {
+                score += isFirstAction ? 35 : 10;
+            }
+
+            if (severePressure)
+            {
+                score += isFirstAction ? 45 : 18;
+            }
+            else if (uncoveredDamage >= 8)
+            {
+                score += isFirstAction ? 25 : 8;
+            }
+
+            if (lowHp)
+            {
+                score += 30;
+            }
+
             if (action.IsOffensivePotion)
             {
-                score += isFirstAction ? 16 : -16;
+                score += isFirstAction ? 24 : -6;
             }
 
             return score;
