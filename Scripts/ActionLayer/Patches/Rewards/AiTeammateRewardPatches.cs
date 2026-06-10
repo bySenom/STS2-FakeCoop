@@ -180,6 +180,27 @@ internal static class AiTeammateRewardPatches
         }
     }
 
+    [HarmonyPatch(typeof(PotionReward), "OnSelect")]
+    private static class PotionRewardOnSelectPatch
+    {
+        private static bool Prefix(PotionReward __instance, ref Task<bool> __result)
+        {
+            if (AiTeammateDummyController.IsPotionRewardOriginalSelectionBypassed())
+            {
+                return true;
+            }
+
+            if (!AiTeammateDummyController.IsAiPlayer(__instance.Player))
+            {
+                return true;
+            }
+
+            Log.Info($"[AITeammate] Deterministically resolving potion reward player={__instance.Player.NetId} autoMode={AiTeammateHostAutoMode.IsAutoControlled(__instance.Player)}");
+            __result = AiTeammateDummyController.ExecuteDeterministicPotionRewardAsync(__instance);
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(ActChangeSynchronizer), nameof(ActChangeSynchronizer.SetLocalPlayerReady))]
     private static class ActChangeSynchronizerSetLocalPlayerReadyPatch
     {

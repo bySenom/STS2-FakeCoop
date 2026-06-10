@@ -233,3 +233,4 @@
 - Expected result: Auto-Mode should pick/skip the card reward using the normal build scoring, or leave the reward manual if the game does not expose rewards in time.
 - Expected result: after resolution, logs show `[AITeammate][AutoMode] Resuming host controller after foreground reward resolution`.
 - If the loot button remains visible and unclickable, check for repeated `[AITeammate][Event] Executing fallback event option` lines while the foreground reward is open; that means the host controller is still re-entering the event path.
+- If a potion reward appears while potion slots are full, expected result is a logged replacement or `skipped_no_slot_no_better_replacement`, not `Slot already contains a potion`.

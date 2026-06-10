@@ -224,4 +224,5 @@
 - Reasoning: event rewards such as `Kaleidoscope` can open loot choices like `Add a card to your deck` before the event page visibly advances. If Auto-Mode immediately replans, it can re-enter the event path and block or race the foreground reward UI.
 - Execution policy: event option reflection calls now await returned `Task`/`Task<bool>` results when the game exposes them, with a short settle delay for synchronous calls.
 - Reward policy: the existing card/relic/potion scoring remains unchanged; this only prevents background event/controller actions from interfering with a visible reward choice.
+- Potion policy: potion rewards are intercepted for AI/host Auto-Mode players before the game's original `PotionReward.OnSelect` runs. The AI checks open slots first, replaces only when the incoming potion clearly beats the weakest held potion, and otherwise logs a skip instead of letting the game throw on a full potion slot.
 - Verification: foreground rewards should log pause/resume around automatic reward resolution, and repeated fallback event option logs should stop while the reward window is open.

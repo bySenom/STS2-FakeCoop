@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using MegaCrit.Sts2.Core.CardSelection;
 using MegaCrit.Sts2.Core.Entities.CardRewardAlternatives;
@@ -25,6 +26,7 @@ internal sealed partial class AiTeammateDummyController
     private static readonly TimeSpan ForegroundRewardInitialDelay = TimeSpan.FromMilliseconds(650);
     private static readonly TimeSpan ForegroundRewardPollInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan ForegroundRewardReadyTimeout = TimeSpan.FromSeconds(4);
+    private static readonly AsyncLocal<int> PotionRewardOriginalSelectionDepth = new();
     private static readonly FieldInfo? CardRewardCardsField =
         typeof(CardReward).GetField("_cards", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly CardChoiceEvaluator CardEvaluator = new();
@@ -101,6 +103,46 @@ internal sealed partial class AiTeammateDummyController
             RunManager.Instance.RewardSynchronizer.SyncLocalSkippedCard(card.Card);
         }
 
+        return false;
+    }
+
+    public static async Task<bool> ExecuteDeterministicPotionRewardAsync(PotionReward potionReward)
+    {
+        PotionModel? incomingPotion = potionReward.Potion;
+        if (incomingPotion == null)
+        {
+            Log.Warn($"[AITeammate] Potion reward had no potion model player={potionReward.Player.NetId}; leaving reward unresolved.");
+            AiRunTelemetryService.RecordPotionReward(potionReward.Player, "unknown", "missing_model");
+            return false;
+        }
+
+        if (potionReward.Player.HasOpenPotionSlots)
+        {
+            bool selected = await TrySelectPotionRewardOriginalAsync(potionReward, incomingPotion, "open_slot");
+            if (selected)
+            {
+                AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, "picked_open_slot");
+            }
+
+            return selected;
+        }
+
+        if (PotionHeuristicEvaluator.TryChoosePotionToReplace(
+                potionReward.Player,
+                incomingPotion,
+                out PotionModel? currentPotion,
+                out double incomingScore,
+                out double discardScore) &&
+            currentPotion != null)
+        {
+            Log.Info($"[AITeammate] Potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
+            AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"replace:{currentPotion.Id.Entry}:incomingScore={incomingScore:F1}:discardScore={discardScore:F1}");
+            await PotionCmd.Discard(currentPotion);
+            return await TrySelectPotionRewardOriginalAsync(potionReward, incomingPotion, "after_replacement");
+        }
+
+        Log.Info($"[AITeammate] Potion reward skipped player={potionReward.Player.NetId} incoming={incomingPotion.Id.Entry} reason=no_open_slot_no_better_replacement");
+        AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, "skipped_no_slot_no_better_replacement");
         return false;
     }
 
@@ -227,6 +269,17 @@ internal sealed partial class AiTeammateDummyController
             : CardSelectCmd.PushSelector(selector);
     }
 
+    public static bool IsPotionRewardOriginalSelectionBypassed()
+    {
+        return PotionRewardOriginalSelectionDepth.Value > 0;
+    }
+
+    private static IDisposable PushPotionRewardOriginalSelection()
+    {
+        PotionRewardOriginalSelectionDepth.Value++;
+        return new PotionRewardOriginalSelectionScope();
+    }
+
     private static int ComputeSelectionCount(int optionCount, int minSelect, int maxSelect)
     {
         if (optionCount <= 0 || maxSelect <= 0)
@@ -248,32 +301,7 @@ internal sealed partial class AiTeammateDummyController
                 await ExecuteDeterministicCardRewardAsync(cardReward);
                 return;
             case PotionReward potionReward:
-                if (await potionReward.SelectUnsynchronized())
-                {
-                    return;
-                }
-
-                PotionModel? incomingPotion = potionReward.Potion;
-                if (incomingPotion != null &&
-                    PotionHeuristicEvaluator.TryChoosePotionToReplace(
-                        potionReward.Player,
-                        incomingPotion,
-                        out PotionModel? currentPotion,
-                        out double incomingScore,
-                        out double discardScore) &&
-                    currentPotion != null)
-                {
-                    Log.Info($"[AITeammate] Potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
-                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"replace:{currentPotion.Id.Entry}:incomingScore={incomingScore:F1}:discardScore={discardScore:F1}");
-                    await PotionCmd.Discard(currentPotion);
-                    await potionReward.SelectUnsynchronized();
-                }
-                else if (incomingPotion != null)
-                {
-                    Log.Info($"[AITeammate] Potion reward skipped replacement player={potionReward.Player.NetId} incoming={incomingPotion.Id.Entry}");
-                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, "kept_existing_or_no_slot");
-                }
-
+                await ExecuteDeterministicPotionRewardAsync(potionReward);
                 return;
             default:
                 await reward.SelectUnsynchronized();
@@ -334,32 +362,7 @@ internal sealed partial class AiTeammateDummyController
         switch (reward)
         {
             case PotionReward potionReward:
-                if (await potionReward.SelectUnsynchronized())
-                {
-                    return;
-                }
-
-                PotionModel? incomingPotion = potionReward.Potion;
-                if (incomingPotion != null &&
-                    PotionHeuristicEvaluator.TryChoosePotionToReplace(
-                        potionReward.Player,
-                        incomingPotion,
-                        out PotionModel? currentPotion,
-                        out double incomingScore,
-                        out double discardScore) &&
-                    currentPotion != null)
-                {
-                    Log.Info($"[AITeammate] Potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
-                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"replace:{currentPotion.Id.Entry}:incomingScore={incomingScore:F1}:discardScore={discardScore:F1}");
-                    await PotionCmd.Discard(currentPotion);
-                    await potionReward.SelectUnsynchronized();
-                }
-                else if (incomingPotion != null)
-                {
-                    Log.Info($"[AITeammate] Potion reward skipped replacement player={potionReward.Player.NetId} incoming={incomingPotion.Id.Entry}");
-                    AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, "kept_existing_or_no_slot");
-                }
-
+                await ExecuteDeterministicPotionRewardAsync(potionReward);
                 return;
             default:
                 await reward.SelectUnsynchronized();
@@ -370,6 +373,32 @@ internal sealed partial class AiTeammateDummyController
     private static List<CardCreationResult> GetCardRewardCards(CardReward reward)
     {
         return CardRewardCardsField?.GetValue(reward) as List<CardCreationResult> ?? [];
+    }
+
+    private static async Task<bool> TrySelectPotionRewardOriginalAsync(
+        PotionReward potionReward,
+        PotionModel incomingPotion,
+        string reason)
+    {
+        try
+        {
+            using IDisposable scope = PushPotionRewardOriginalSelection();
+            bool selected = await potionReward.SelectUnsynchronized();
+            Log.Info($"[AITeammate] Potion reward selected player={potionReward.Player.NetId} potion={incomingPotion.Id.Entry} reason={reason} selected={selected}");
+            return selected;
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("Slot already contains a potion", StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Warn($"[AITeammate] Potion reward selection blocked by full slot player={potionReward.Player.NetId} potion={incomingPotion.Id.Entry} reason={reason}: {exception.Message}");
+            AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"selection_blocked_full_slot:{reason}");
+            return false;
+        }
+        catch (Exception exception)
+        {
+            Log.Warn($"[AITeammate] Potion reward selection failed player={potionReward.Player.NetId} potion={incomingPotion.Id.Entry} reason={reason}: {exception}");
+            AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"selection_failed:{reason}");
+            return false;
+        }
     }
 
     private static void LogCardChoiceDecision(Player player, CardChoiceDecision decision, string source)
@@ -406,6 +435,22 @@ internal sealed partial class AiTeammateDummyController
             {
                 card = selected.Card
             };
+        }
+    }
+
+    private sealed class PotionRewardOriginalSelectionScope : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            PotionRewardOriginalSelectionDepth.Value = Math.Max(0, PotionRewardOriginalSelectionDepth.Value - 1);
         }
     }
 }
