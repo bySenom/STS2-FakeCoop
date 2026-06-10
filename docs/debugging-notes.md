@@ -230,9 +230,13 @@
 
 - Enable host Auto-Mode with `F4`, then choose a reward/event that opens a foreground loot choice such as `Add a card to your deck`.
 - Expected result: logs show `[AITeammate][AutoMode] Pausing host controller during foreground reward resolution` before the reward is processed.
+- Expected result: Auto-Mode should log `Releasing visible reward button` for visible loot entries instead of only mutating the reward model in the background.
+- Expected result: card rewards should open the normal card selection screen, log `Foreground card reward decision`, then log `Foreground card reward UI selected` after a short delay so the chosen card/skip is visible.
+- Expected result: after a card or potion is collected, the visible loot row should disappear and the top-bar deck/potion count should match the actual deck/potion state.
 - Expected result: Auto-Mode should pick/skip the card reward using the normal build scoring, or leave the reward manual if the game does not expose rewards in time.
 - Expected result: after resolution, logs show `[AITeammate][AutoMode] Resuming host controller after foreground reward resolution`.
 - If the loot button remains visible and unclickable, check for repeated `[AITeammate][Event] Executing fallback event option` lines while the foreground reward is open; that means the host controller is still re-entering the event path.
+- If the deck view contains one more card than the top-right counter, check whether the log shows the fallback `Could not find visible reward button`; that means the game model path was used instead of the visible UI button path.
 - If a potion reward appears while potion slots are full, expected result is a logged replacement or `skipped_no_slot_no_better_replacement`, not `Slot already contains a potion`.
 
 ## Reward Synergy Context Check

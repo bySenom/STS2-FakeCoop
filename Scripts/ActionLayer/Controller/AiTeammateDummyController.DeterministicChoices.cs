@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Godot;
+using HarmonyLib;
 using MegaCrit.Sts2.Core.CardSelection;
 using MegaCrit.Sts2.Core.Entities.CardRewardAlternatives;
 using MegaCrit.Sts2.Core.Entities.Cards;
@@ -13,6 +15,9 @@ using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Nodes.Rewards;
+using MegaCrit.Sts2.Core.Nodes.Screens;
+using MegaCrit.Sts2.Core.Nodes.Screens.Overlays;
 using MegaCrit.Sts2.Core.Rewards;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Runs.History;
@@ -26,9 +31,14 @@ internal sealed partial class AiTeammateDummyController
     private static readonly TimeSpan ForegroundRewardInitialDelay = TimeSpan.FromMilliseconds(650);
     private static readonly TimeSpan ForegroundRewardPollInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan ForegroundRewardReadyTimeout = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan ForegroundCardChoiceDelay = TimeSpan.FromMilliseconds(850);
+    private static readonly TimeSpan ForegroundRewardButtonTimeout = TimeSpan.FromSeconds(5);
     private static readonly AsyncLocal<int> PotionRewardOriginalSelectionDepth = new();
+    private static readonly AsyncLocal<ForegroundCardRewardSelection?> CurrentForegroundCardRewardSelection = new();
     private static readonly FieldInfo? CardRewardCardsField =
         typeof(CardReward).GetField("_cards", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? RewardsScreenRewardButtonsField =
+        typeof(NRewardsScreen).GetField("_rewardButtons", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly CardChoiceEvaluator CardEvaluator = new();
     private static readonly AiRelicChoiceEvaluator RelicEvaluator = new();
     private static readonly CardUpgradeEvaluator UpgradeEvaluator = new();
@@ -274,6 +284,12 @@ internal sealed partial class AiTeammateDummyController
         return PotionRewardOriginalSelectionDepth.Value > 0;
     }
 
+    public static bool IsForegroundCardRewardUiSelectionActive(Player player)
+    {
+        ForegroundCardRewardSelection? selection = CurrentForegroundCardRewardSelection.Value;
+        return selection != null && selection.PlayerId == player.NetId;
+    }
+
     private static IDisposable PushPotionRewardOriginalSelection()
     {
         PotionRewardOriginalSelectionDepth.Value++;
@@ -359,15 +375,167 @@ internal sealed partial class AiTeammateDummyController
 
     private static async Task ExecuteForegroundRewardAsync(Reward reward)
     {
+        if (reward is CardReward cardReward)
+        {
+            ForegroundCardRewardSelection selection = BuildForegroundCardRewardSelection(cardReward);
+            using IDisposable selectionScope = PushForegroundCardRewardSelection(selection);
+            await ExecuteForegroundRewardViaVisibleButtonAsync(reward, "card");
+            return;
+        }
+
         switch (reward)
         {
             case PotionReward potionReward:
-                await ExecuteDeterministicPotionRewardAsync(potionReward);
+                await PrepareForegroundPotionRewardAsync(potionReward);
+                await ExecuteForegroundRewardViaVisibleButtonAsync(reward, "potion");
                 return;
             default:
-                await reward.SelectUnsynchronized();
+                await ExecuteForegroundRewardViaVisibleButtonAsync(reward, reward.GetType().Name);
                 return;
         }
+    }
+
+    private static ForegroundCardRewardSelection BuildForegroundCardRewardSelection(CardReward reward)
+    {
+        List<CardCreationResult> cards = GetCardRewardCards(reward);
+        CardChoiceDecision decision = CardEvaluator.EvaluateCandidates(
+            cards.Select(static card => card.Card),
+            CardEvaluator.ContextFactory.Create(
+                reward.Player,
+                CardChoiceSource.Reward,
+                reward.CanSkip,
+                debugSource: "foreground_card_reward"));
+        LogCardChoiceDecision(reward.Player, decision, "foreground_card_reward");
+
+        CardModel? selected = decision.ShouldTakeCard
+            ? decision.BestEvaluation?.CandidateCard
+            : null;
+        AiRunTelemetryService.RecordCardChoice(reward.Player, "foreground_reward", decision, selected);
+
+        int? selectedIndex = selected == null
+            ? null
+            : cards.FindIndex(card => card.Card == selected);
+        if (selectedIndex < 0)
+        {
+            selectedIndex = null;
+        }
+
+        Log.Info($"[AITeammate][AutoMode] Foreground card reward decision player={reward.Player.NetId} selected={selected?.Id.Entry ?? "skip"} index={selectedIndex?.ToString() ?? "skip"} threshold={decision.SkipThreshold:F1}");
+        return new ForegroundCardRewardSelection(
+            reward.Player.NetId,
+            selectedIndex,
+            selected?.Id.Entry ?? "skip");
+    }
+
+    private static IDisposable PushForegroundCardRewardSelection(ForegroundCardRewardSelection selection)
+    {
+        ForegroundCardRewardSelection? previous = CurrentForegroundCardRewardSelection.Value;
+        CurrentForegroundCardRewardSelection.Value = selection;
+        return new ForegroundCardRewardSelectionScope(previous);
+    }
+
+    private static async Task PrepareForegroundPotionRewardAsync(PotionReward potionReward)
+    {
+        PotionModel? incomingPotion = potionReward.Potion;
+        if (incomingPotion == null || potionReward.Player.HasOpenPotionSlots)
+        {
+            return;
+        }
+
+        if (PotionHeuristicEvaluator.TryChoosePotionToReplace(
+                potionReward.Player,
+                incomingPotion,
+                out PotionModel? currentPotion,
+                out double incomingScore,
+                out double discardScore) &&
+            currentPotion != null)
+        {
+            Log.Info($"[AITeammate][AutoMode] Foreground potion reward replacement player={potionReward.Player.NetId} discard={currentPotion.Id.Entry} discardScore={discardScore:F1} incoming={incomingPotion.Id.Entry} incomingScore={incomingScore:F1}");
+            AiRunTelemetryService.RecordPotionReward(potionReward.Player, incomingPotion.Id.Entry, $"foreground_replace:{currentPotion.Id.Entry}:incomingScore={incomingScore:F1}:discardScore={discardScore:F1}");
+            await PotionCmd.Discard(currentPotion);
+        }
+    }
+
+    private static async Task ExecuteForegroundRewardViaVisibleButtonAsync(Reward reward, string rewardKind)
+    {
+        if (TryReleaseVisibleRewardButton(reward))
+        {
+            await WaitForForegroundRewardButtonAsync(reward, rewardKind);
+            return;
+        }
+
+        Log.Warn($"[AITeammate][AutoMode] Could not find visible reward button for {rewardKind}; falling back to synchronized reward selection player={reward.Player.NetId}");
+        await RunManager.Instance.RewardsSetSynchronizer.SelectLocalReward(reward);
+    }
+
+    private static bool TryReleaseVisibleRewardButton(Reward reward)
+    {
+        NRewardButton? button = FindVisibleRewardButton(reward);
+        if (button == null)
+        {
+            return false;
+        }
+
+        Log.Info($"[AITeammate][AutoMode] Releasing visible reward button player={reward.Player.NetId} reward={reward.GetType().Name}");
+        button.Call("OnRelease");
+        return true;
+    }
+
+    private static NRewardButton? FindVisibleRewardButton(Reward reward)
+    {
+        NRewardsScreen? screen = NOverlayStack.Instance?
+            .GetChildren()
+            .OfType<NRewardsScreen>()
+            .LastOrDefault();
+        if (screen == null || RewardsScreenRewardButtonsField?.GetValue(screen) is not IEnumerable<Control> controls)
+        {
+            return null;
+        }
+
+        return controls
+            .OfType<NRewardButton>()
+            .FirstOrDefault(button => ReferenceEquals(button.Reward, reward));
+    }
+
+    private static async Task WaitForForegroundRewardButtonAsync(Reward reward, string rewardKind)
+    {
+        DateTime startedAtUtc = DateTime.UtcNow;
+        while (!reward.SuccessfullySelected &&
+               DateTime.UtcNow - startedAtUtc < ForegroundRewardButtonTimeout)
+        {
+            await Task.Delay(ForegroundRewardPollInterval);
+        }
+
+        if (reward.SuccessfullySelected)
+        {
+            Log.Info($"[AITeammate][AutoMode] Foreground reward button completed player={reward.Player.NetId} reward={rewardKind}");
+            return;
+        }
+
+        Log.Warn($"[AITeammate][AutoMode] Foreground reward button did not complete in time player={reward.Player.NetId} reward={rewardKind}");
+    }
+
+    [HarmonyPatch(typeof(MegaCrit.Sts2.Core.Nodes.Screens.CardSelection.NCardRewardSelectionScreen), nameof(MegaCrit.Sts2.Core.Nodes.Screens.CardSelection.NCardRewardSelectionScreen.OptionSelected))]
+    private static class ForegroundCardRewardOptionSelectedPatch
+    {
+        private static bool Prefix(ref Task<int?> __result)
+        {
+            ForegroundCardRewardSelection? selection = CurrentForegroundCardRewardSelection.Value;
+            if (selection == null)
+            {
+                return true;
+            }
+
+            __result = ResolveForegroundCardRewardSelectionAsync(selection);
+            return false;
+        }
+    }
+
+    private static async Task<int?> ResolveForegroundCardRewardSelectionAsync(ForegroundCardRewardSelection selection)
+    {
+        await Task.Delay(ForegroundCardChoiceDelay);
+        Log.Info($"[AITeammate][AutoMode] Foreground card reward UI selected player={selection.PlayerId} card={selection.SelectedCardId} index={selection.SelectedIndex?.ToString() ?? "skip"}");
+        return selection.SelectedIndex;
     }
 
     private static List<CardCreationResult> GetCardRewardCards(CardReward reward)
@@ -451,6 +619,27 @@ internal sealed partial class AiTeammateDummyController
 
             _disposed = true;
             PotionRewardOriginalSelectionDepth.Value = Math.Max(0, PotionRewardOriginalSelectionDepth.Value - 1);
+        }
+    }
+
+    private sealed record ForegroundCardRewardSelection(
+        ulong PlayerId,
+        int? SelectedIndex,
+        string SelectedCardId);
+
+    private sealed class ForegroundCardRewardSelectionScope(ForegroundCardRewardSelection? previous) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            CurrentForegroundCardRewardSelection.Value = previous;
         }
     }
 }

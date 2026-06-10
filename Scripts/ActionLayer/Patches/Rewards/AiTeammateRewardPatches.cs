@@ -174,6 +174,12 @@ internal static class AiTeammateRewardPatches
                 return true;
             }
 
+            if (AiTeammateDummyController.IsForegroundCardRewardUiSelectionActive(__instance.Player))
+            {
+                Log.Info($"[AITeammate][AutoMode] Letting foreground card reward UI resolve player={__instance.Player.NetId}");
+                return true;
+            }
+
             Log.Info($"[AITeammate] Deterministically resolving card reward player={__instance.Player.NetId} autoMode={AiTeammateHostAutoMode.IsAutoControlled(__instance.Player)}");
             __result = AiTeammateDummyController.ExecuteDeterministicCardRewardAsync(__instance);
             return false;
