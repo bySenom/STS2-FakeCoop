@@ -239,6 +239,14 @@
 - If the deck view contains one more card than the top-right counter, check whether the log shows the fallback `Could not find visible reward button`; that means the game model path was used instead of the visible UI button path.
 - If a potion reward appears while potion slots are full, expected result is a logged replacement or `skipped_no_slot_no_better_replacement`, not `Slot already contains a potion`.
 
+## Host Auto-Mode Treasure Relic Check
+
+- Enable host Auto-Mode with `F4`, then open a treasure chest in an AI teammate run.
+- Expected result: the relic choice UI should show real relics, not `Empty`.
+- Expected result: logs show `Queued foreground treasure relic pick` after `Treasure relic picking started`.
+- Expected result: after the relic holders animate in, logs show `Applying foreground treasure relic pick`, and the run proceeds normally after the relic award animation.
+- If the screen still says `Empty`, check whether `Applying foreground treasure relic pick` appears before the game's `InitializeRelics`/holder setup logs; the host vote is still happening too early.
+
 ## Reward Synergy Context Check
 
 - After a card reward, inspect the run telemetry file under `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/`.

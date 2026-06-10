@@ -229,6 +229,13 @@
 - Potion policy: potion rewards are intercepted for AI/host Auto-Mode players before the game's original `PotionReward.OnSelect` runs. The AI checks open slots first, replaces only when the incoming potion clearly beats the weakest held potion, and otherwise logs a skip instead of letting the game throw on a full potion slot.
 - Verification: foreground rewards should log pause/resume around automatic reward resolution, and repeated fallback event option logs should stop while the reward window is open.
 
+## Host Auto-Mode Treasure Relics
+
+- Patch points: `TreasureRoomRelicSynchronizer.BeginRelicPicking` and `NTreasureRoomRelicCollection.AnimIn`.
+- Decision: host Auto-Mode no longer calls `PickRelicLocally` immediately inside `BeginRelicPicking`. It queues the chosen relic index and applies it after the visible relic collection animates in.
+- Reasoning: `NTreasureRoom.OpenChest` initializes the visible relic holders after `BeginRelicPicking`. Picking immediately can complete voting and clear `CurrentRelics` before `InitializeRelics`, causing the UI to render the chest as `Empty` even though relics existed.
+- Verification: treasure logs should show `Queued foreground treasure relic pick`, then `Applying foreground treasure relic pick`; the relic options should be visible briefly before Auto-Mode selects one.
+
 ## Reward and Combat Synergy Context
 
 - Patch points: `CardEvaluationContextFactory`, `CardChoiceDecision`, `AiRunTelemetryService`, `CardResolver`, and `CombatActionScorer`.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.GameActions;
@@ -8,6 +9,7 @@ using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
+using MegaCrit.Sts2.Core.Nodes.Screens.TreasureRoomRelic;
 using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;
 
@@ -16,6 +18,9 @@ namespace AITeammate.Scripts;
 internal static class AiTeammateMapAndTreasurePatches
 {
     private static readonly AiRelicChoiceEvaluator RelicEvaluator = new();
+    private static readonly Dictionary<ulong, PendingTreasureRelicPick> PendingForegroundHostRelicPicks = new();
+    private static readonly object PendingForegroundHostRelicPickLock = new();
+    private static readonly TimeSpan ForegroundHostRelicPickDelay = TimeSpan.FromMilliseconds(900);
 
     [HarmonyPatch(typeof(MapSelectionSynchronizer), nameof(MapSelectionSynchronizer.PlayerVotedForMapCoord))]
     private static class MapSelectionSynchronizerPatch
@@ -84,7 +89,7 @@ internal static class AiTeammateMapAndTreasurePatches
                 Log.Info($"[AITeammate] Auto-voting coordinated treasure relic player={player.NetId} relicIndex={chosenRelicIndex} relic={relic.Id.Entry}");
                 if (player.NetId == session.HostPlayerId && AiTeammateHostAutoMode.IsAutoControlled(player))
                 {
-                    __instance.PickRelicLocally(chosenRelicIndex);
+                    QueueForegroundHostRelicPick(player, chosenRelicIndex, relic.Id.Entry);
                 }
                 else
                 {
@@ -192,4 +197,67 @@ internal static class AiTeammateMapAndTreasurePatches
             }
         }
     }
+
+    [HarmonyPatch(typeof(NTreasureRoomRelicCollection), nameof(NTreasureRoomRelicCollection.AnimIn))]
+    private static class TreasureRoomRelicCollectionAnimInPatch
+    {
+        private static void Postfix()
+        {
+            FlushPendingForegroundHostRelicPickAfterUiReady();
+        }
+    }
+
+    private static void QueueForegroundHostRelicPick(Player player, int relicIndex, string relicId)
+    {
+        lock (PendingForegroundHostRelicPickLock)
+        {
+            PendingForegroundHostRelicPicks[player.NetId] = new PendingTreasureRelicPick(player.NetId, relicIndex, relicId);
+        }
+
+        Log.Info($"[AITeammate][AutoMode] Queued foreground treasure relic pick player={player.NetId} relicIndex={relicIndex} relic={relicId}");
+    }
+
+    private static void FlushPendingForegroundHostRelicPickAfterUiReady()
+    {
+        PendingTreasureRelicPick? pendingPick = null;
+        AiTeammateSessionState? session = AiTeammateSessionRegistry.Current;
+        if (session == null)
+        {
+            return;
+        }
+
+        lock (PendingForegroundHostRelicPickLock)
+        {
+            if (PendingForegroundHostRelicPicks.Remove(session.HostPlayerId, out PendingTreasureRelicPick? queuedPick))
+            {
+                pendingPick = queuedPick;
+            }
+        }
+
+        if (pendingPick == null)
+        {
+            return;
+        }
+
+        _ = PickForegroundHostRelicAfterDelayAsync(pendingPick);
+    }
+
+    private static async Task PickForegroundHostRelicAfterDelayAsync(PendingTreasureRelicPick pendingPick)
+    {
+        await Task.Delay(ForegroundHostRelicPickDelay);
+
+        TreasureRoomRelicSynchronizer? synchronizer = RunManager.Instance?.TreasureRoomRelicSynchronizer;
+        IReadOnlyList<RelicModel>? currentRelics = synchronizer?.CurrentRelics;
+        if (synchronizer == null || currentRelics == null || currentRelics.Count == 0)
+        {
+            Log.Warn($"[AITeammate][AutoMode] Could not apply queued treasure relic pick because relic options are gone. player={pendingPick.PlayerId} relic={pendingPick.RelicId}");
+            return;
+        }
+
+        int clampedIndex = Math.Clamp(pendingPick.RelicIndex, 0, currentRelics.Count - 1);
+        Log.Info($"[AITeammate][AutoMode] Applying foreground treasure relic pick player={pendingPick.PlayerId} relicIndex={clampedIndex} relic={currentRelics[clampedIndex].Id.Entry}");
+        synchronizer.PickRelicLocally(clampedIndex);
+    }
+
+    private sealed record PendingTreasureRelicPick(ulong PlayerId, int RelicIndex, string RelicId);
 }
