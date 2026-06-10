@@ -204,6 +204,7 @@
 - If one player id shows multiple unrelated `characterId` values inside one run file, treat that file as stale/mixed telemetry from an older build rather than clean combat evidence.
 - For combat potion tuning, compare `death_with_unused_potions`, `potion_left danger=True`, and combat decisions with `category=Potion` before and after a run. Dangerous elite/boss turns should show earlier potion use instead of saving low-score potions until death.
 - If flushing fails with `positive and negative infinity cannot be written as valid JSON`, the telemetry export is receiving a non-finite score. Current builds sanitize these values before writing; expected result is a warning naming the field, followed by a successful `Flushed run telemetry`.
+- For combat rotation tuning, compare `starter_strike`, `energy_left`, `draw_left_while_energy_available`, and `engine_setup_left` notes. Longer line planning should reduce turns where a starter Strike is played while affordable draw or engine setup remains.
 
 ## Silent Strength Check
 

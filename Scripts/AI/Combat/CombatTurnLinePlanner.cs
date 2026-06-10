@@ -7,8 +7,8 @@ namespace AITeammate.Scripts;
 
 internal sealed class CombatTurnLinePlanner
 {
-    private const int MaxLineLength = 3;
-    private const int BeamWidth = 6;
+    private const int MaxLineLength = 5;
+    private const int BeamWidth = 8;
     private const int ExcessBlockTempoPenaltyPerPoint = 10;
 
     private readonly CombatActionScorer _scorer;
@@ -1007,6 +1007,11 @@ internal sealed class CombatTurnLinePlanner
                 !_consumedKeys.Contains(action.ConsumptionKey) &&
                 action.IsCoreBuildPower &&
                 (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
+            bool hasUnplayedDraw = EnergyRemaining > 0 &&
+                actions.Any(action =>
+                    !_consumedKeys.Contains(action.ConsumptionKey) &&
+                    action.CardsDrawn > 0 &&
+                    (action.IsXCost ? EnergyRemaining > 0 : action.EnergyCost <= EnergyRemaining));
             bool playedPayoff = ActionIds.Any(actionId =>
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.BuildRole is CombatBuildRole.Payoff or CombatBuildRole.Finisher));
@@ -1021,9 +1026,24 @@ internal sealed class CombatTurnLinePlanner
                 actions.Any(action => string.Equals(action.Action.ActionId, actionId, StringComparison.Ordinal) &&
                                       action.IsWeakStarterStrike));
             int score = hasUnplayedSetup && playedPayoff ? -24 : 0;
+            if (hasUnplayedDraw)
+            {
+                score -= 28 + Math.Min(3, EnergyRemaining) * 8;
+            }
+
             if (hasUnplayedSetup && playedWeakStarterStrike)
             {
-                score -= 48;
+                score -= 72;
+            }
+
+            if (hasUnplayedDraw && playedWeakStarterStrike)
+            {
+                score -= 52;
+            }
+
+            if (hasUnplayedEngineSetup && playedWeakStarterStrike)
+            {
+                score -= 56;
             }
 
             if (hasUnplayedCoreBuildPower && playedNonCoreBuildAction)
