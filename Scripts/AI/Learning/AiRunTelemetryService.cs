@@ -393,6 +393,7 @@ internal static class AiRunTelemetryService
                 flushedRunId = _runId;
             }
 
+            file = SanitizeRunFile(file);
             Directory.CreateDirectory(GetTelemetryRunsDirectoryPath());
             string runPath = Path.Combine(GetTelemetryRunsDirectoryPath(), $"{flushedRunId}.json");
             File.WriteAllText(runPath, JsonSerializer.Serialize(file, JsonOptions));
@@ -660,6 +661,124 @@ internal static class AiRunTelemetryService
                 player.ProbableIssues
             }).ToList()
         };
+    }
+
+    private static AiTelemetryRunFile SanitizeRunFile(AiTelemetryRunFile file)
+    {
+        return new AiTelemetryRunFile
+        {
+            SchemaVersion = file.SchemaVersion,
+            RunId = file.RunId,
+            CreatedAtUtc = file.CreatedAtUtc,
+            FlushReason = file.FlushReason,
+            Abandoned = file.Abandoned,
+            PlayerReports = file.PlayerReports.Select(SanitizePlayerReport).ToList(),
+            Decisions = file.Decisions.Select(SanitizeDecisionRecord).ToList()
+        };
+    }
+
+    private static AiTelemetryPlayerReport SanitizePlayerReport(AiTelemetryPlayerReport report)
+    {
+        return new AiTelemetryPlayerReport
+        {
+            PlayerId = report.PlayerId,
+            CharacterId = report.CharacterId,
+            ActiveBuildId = report.ActiveBuildId,
+            LastAct = report.LastAct,
+            LastFloor = report.LastFloor,
+            LastRoomType = report.LastRoomType,
+            LastSnapshotReason = report.LastSnapshotReason,
+            FinalHp = report.FinalHp,
+            MaxHp = report.MaxHp,
+            Gold = report.Gold,
+            CombatsCompleted = report.CombatsCompleted,
+            EliteCombats = report.EliteCombats,
+            BossCombats = report.BossCombats,
+            CombatDecisions = report.CombatDecisions,
+            TotalEstimatedDamage = report.TotalEstimatedDamage,
+            TotalEstimatedDamageTaken = report.TotalEstimatedDamageTaken,
+            TotalIncomingSeen = report.TotalIncomingSeen,
+            TotalUncoveredIncomingSeen = report.TotalUncoveredIncomingSeen,
+            EndTurnsWithEnergy = report.EndTurnsWithEnergy,
+            StarterStrikePlays = report.StarterStrikePlays,
+            LikelyOverblockPlays = report.LikelyOverblockPlays,
+            CardRewardPicks = report.CardRewardPicks,
+            CardRewardSkips = report.CardRewardSkips,
+            OffBuildCardOffersSeen = report.OffBuildCardOffersSeen,
+            RelicChoices = report.RelicChoices,
+            PotionRewardChoices = report.PotionRewardChoices,
+            Upgrades = report.Upgrades,
+            RestSitesUpgraded = report.RestSitesUpgraded,
+            RestSitesHealed = report.RestSitesHealed,
+            ShopSteps = report.ShopSteps,
+            ShopPurchases = report.ShopPurchases,
+            ShopRemovals = report.ShopRemovals,
+            Deck = SanitizeDeckSnapshot(report.PlayerId, report.Deck),
+            MissingCoreCards = report.MissingCoreCards,
+            Relics = report.Relics,
+            Potions = report.Potions,
+            ProbableIssues = report.ProbableIssues
+        };
+    }
+
+    private static AiTelemetryDeckSnapshot SanitizeDeckSnapshot(ulong playerId, AiTelemetryDeckSnapshot deck)
+    {
+        return new AiTelemetryDeckSnapshot
+        {
+            CardCount = deck.CardCount,
+            UpgradedCardCount = deck.UpgradedCardCount,
+            AttackCount = deck.AttackCount,
+            SkillCount = deck.SkillCount,
+            PowerCount = deck.PowerCount,
+            FrontloadDamageSources = deck.FrontloadDamageSources,
+            BlockSources = deck.BlockSources,
+            DrawSources = deck.DrawSources,
+            EnergySources = deck.EnergySources,
+            ScalingSources = deck.ScalingSources,
+            AverageCost = SafeTelemetryDouble(deck.AverageCost, $"player={playerId}:deck.averageCost"),
+            AverageDamage = SafeTelemetryDouble(deck.AverageDamage, $"player={playerId}:deck.averageDamage"),
+            AverageBlock = SafeTelemetryDouble(deck.AverageBlock, $"player={playerId}:deck.averageBlock"),
+            CardIds = deck.CardIds
+        };
+    }
+
+    private static AiTelemetryDecisionRecord SanitizeDecisionRecord(AiTelemetryDecisionRecord record)
+    {
+        return new AiTelemetryDecisionRecord
+        {
+            DecisionType = record.DecisionType,
+            PlayerId = record.PlayerId,
+            CharacterId = record.CharacterId,
+            Act = record.Act,
+            Floor = record.Floor,
+            RoomType = record.RoomType,
+            ActiveBuildId = record.ActiveBuildId,
+            PickedId = record.PickedId,
+            PickedName = record.PickedName,
+            Role = record.Role,
+            Score = SafeTelemetryDouble(record.Score, $"player={record.PlayerId}:decision={record.DecisionType}:score:{record.PickedId}"),
+            Rank = record.Rank,
+            AlternativeCount = record.AlternativeCount,
+            Threshold = SafeTelemetryDouble(record.Threshold, $"player={record.PlayerId}:decision={record.DecisionType}:threshold:{record.PickedId}"),
+            IncomingDamage = record.IncomingDamage,
+            CurrentBlock = record.CurrentBlock,
+            Energy = record.Energy,
+            EstimatedDamage = record.EstimatedDamage,
+            EstimatedDamageTaken = record.EstimatedDamageTaken,
+            Notes = record.Notes,
+            CreatedAtUtc = record.CreatedAtUtc
+        };
+    }
+
+    private static double SafeTelemetryDouble(double value, string field)
+    {
+        if (!double.IsNaN(value) && !double.IsInfinity(value))
+        {
+            return value;
+        }
+
+        Log.Warn($"[AITeammate][Telemetry] Replaced non-finite telemetry value field={field} value={value} with 0.");
+        return 0d;
     }
 
     private static bool IsStarterStrike(ResolvedCardView card)

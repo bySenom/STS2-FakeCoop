@@ -186,6 +186,7 @@
 - Attribution policy: current death/loss attribution is conservative and metric-based. It flags probable causes such as block shortage, scaling shortage, unused potions at low/dead HP, too many starter Strike plays, frequent end turns with energy, overblocking, large decks, and missing build core cards.
 - Storage policy: per-run telemetry is stored as JSON in `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/runs/`; a compact `%APPDATA%/SlayTheSpire2/sts2AITeammate/ai-telemetry/latest-summary.json` is overwritten for fast inspection after the last test run.
 - Run boundary policy: after a successful telemetry flush, the in-memory player reports, decisions, abandoned flag, and run id are reset. This keeps later test runs from inheriting stale combat decisions when the game process stays open.
+- Serialization policy: run telemetry sanitizes non-finite floating-point values before writing JSON. Some planners use sentinel values such as negative infinity internally, but the stored run file must remain valid and should not be lost because one score is non-finite.
 - Rejected approach: immediately tuning all weights toward a target win rate. The smaller step is to make failures visible first, then tune the highest-impact issue with in-game evidence.
 - Verification: after a test run cleanup, inspect `latest-summary.json` and confirm each auto-controlled player has deck metrics and `probableIssues`.
 
