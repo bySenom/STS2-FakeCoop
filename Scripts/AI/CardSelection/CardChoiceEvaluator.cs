@@ -357,6 +357,7 @@ internal sealed class CardChoiceEvaluator
 
         score += ScoreSilentContext(card, features, context);
         score += ScoreDefectContext(card, features, context);
+        score += ScoreIroncladContext(card, features, context);
         return score;
     }
 
@@ -485,6 +486,150 @@ internal sealed class CardChoiceEvaluator
         {
             score += features.Energy * 4d;
             score += earlyAct ? 14d : 8d;
+        }
+
+        return score;
+    }
+
+    private static double ScoreIroncladContext(ResolvedCardView card, CardFeatureVector features, CardEvaluationContext context)
+    {
+        if (!string.Equals(AiCharacterCombatConfigLoader.LoadForPlayer(context.Player).CharacterId, "ironclad", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0d;
+        }
+
+        double score = 0d;
+        bool earlyAct = context.CurrentActIndex == 0 && context.TotalFloor <= 10;
+
+        // Strength build core
+        if (HasToken(card, "SWOLE", "SPOTWEAKNESS", "INFLAME"))
+        {
+            score += earlyAct ? 28d : 18d;
+        }
+
+        if (HasToken(card, "DEMONFORM"))
+        {
+            score += 30d;
+            int strengthCards = context.DeckCards.Count(static c => HasToken(c, "HEAVYBLADE", "SWORD", "SWOLE", "INFLAME", "SPOTWEAKNESS"));
+            score += strengthCards > 0 ? 20d : 0d;
+        }
+
+        if (HasToken(card, "LIMITBREAK"))
+        {
+            score += context.DeckCards.Any(static c => HasToken(c, "INFLAME", "DEMONFORM", "SWOLE", "SPOTWEAKNESS")) ? 24d : 12d;
+        }
+
+        if (HasToken(card, "HEAVYBLADE", "SWORD"))
+        {
+            int strengthSources = context.DeckCards.Count(static c => HasToken(c, "INFLAME", "DEMONFORM", "SWOLE", "SPOTWEAKNESS", "LIMITBREAK"));
+            score += earlyAct ? 16d : 10d;
+            score += strengthSources > 0 ? 16d : 0d;
+        }
+
+        // Barricade / block build
+        if (HasToken(card, "BARRICADE"))
+        {
+            score += 28d;
+            int blockCards = context.DeckCards.Count(static c => HasToken(c, "BODYSLAM", "ENTRENCH", "IMPERVIOUS", "SECONDDEFENCE"));
+            score += Math.Min(blockCards, 4) * 4d;
+        }
+
+        if (HasToken(card, "BODYSLAM"))
+        {
+            score += context.DeckCards.Any(static c => HasToken(c, "BARRICADE", "ENTRENCH", "IMPERVIOUS")) ? 22d : 10d;
+        }
+
+        if (HasToken(card, "ENTRENCH"))
+        {
+            score += context.DeckCards.Any(static c => HasToken(c, "BARRICADE")) ? 24d : 14d;
+        }
+
+        if (HasToken(card, "IMPERVIOUS"))
+        {
+            score += earlyAct ? 22d : 16d;
+        }
+
+        // Exhaust build
+        if (HasToken(card, "CORRUPTION"))
+        {
+            int skillCount = context.DeckCards.Count(static c => c.Type == CardType.Skill);
+            score += 26d + Math.Min(skillCount, 8) * 3d;
+        }
+
+        if (HasToken(card, "FEELNOPAIN"))
+        {
+            int exhaustCards = context.DeckCards.Count(static c => HasToken(c, "CORRUPTION", "FIENDFIRE", "SECONDWIND", "TRUEGRIT", "BURNING", "SENTINEL"));
+            score += 20d + Math.Min(exhaustCards, 6) * 3d;
+        }
+
+        if (HasToken(card, "DARKEMBRACE"))
+        {
+            int exhaustCards = context.DeckCards.Count(static c => HasToken(c, "CORRUPTION", "FIENDFIRE", "SECONDWIND", "TRUEGRIT", "BURNING", "SENTINEL"));
+            score += 22d + Math.Min(exhaustCards, 6) * 3d;
+        }
+
+        if (HasToken(card, "FIENDFIRE", "SECONDWIND"))
+        {
+            score += context.DeckCards.Any(static c => HasToken(c, "CORRUPTION", "DARKEMBRACE", "FEELNOPAIN")) ? 22d : 10d;
+        }
+
+        if (HasToken(card, "TRUEGRIT", "SENTINEL", "BURNING"))
+        {
+            score += earlyAct ? 14d : 8d;
+        }
+
+        // Bloodletting / self-wound build
+        if (HasToken(card, "RUPTURE"))
+        {
+            int selfDamageCards = context.DeckCards.Count(static c => HasToken(c, "BLOODLET", "HEMOKINESIS", "COMBUST", "OFFERING"));
+            score += 22d + Math.Min(selfDamageCards, 5) * 4d;
+        }
+
+        if (HasToken(card, "HEMOKINESIS", "COMBUST"))
+        {
+            score += earlyAct ? 16d : 10d;
+            score += context.DeckCards.Any(static c => HasToken(c, "RUPTURE")) ? 12d : 0d;
+        }
+
+        if (HasToken(card, "REAPER"))
+        {
+            score += 20d;
+            score += context.DeckCards.Any(static c => HasToken(c, "SWOLE", "INFLAME", "DEMONFORM", "SPOTWEAKNESS", "RUPTURE")) ? 16d : 0d;
+        }
+
+        // Strike build
+        if (HasToken(card, "PERFECTEDSTRIKE"))
+        {
+            int strikeCount = context.DeckCards.Count(static c => HasToken(c, "STRIKE"));
+            score += 14d + strikeCount * 8d;
+        }
+
+        // General Ironclad staples
+        if (HasToken(card, "OFFERING"))
+        {
+            score += 24d;
+            score += earlyAct ? 12d : 6d;
+        }
+
+        if (HasToken(card, "BATTLETRANCE") || card.GetCardsDrawn() >= 2)
+        {
+            score += 12d + features.Draw * 2d;
+        }
+
+        if (HasToken(card, "SHOCKWAVE"))
+        {
+            score += 20d;
+            score += earlyAct ? 14d : 8d;
+        }
+
+        if (HasToken(card, "UPPERCUT"))
+        {
+            score += earlyAct ? 16d : 10d;
+        }
+
+        if (HasToken(card, "DISARM"))
+        {
+            score += 18d;
         }
 
         return score;

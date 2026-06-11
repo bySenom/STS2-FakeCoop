@@ -274,6 +274,8 @@ internal static class CombatBuildRoleEvaluator
         {
             "strength" => HasToken(card, "HEAVYBLADE", "SWORD", "TWIN", "POMMEL", "WHIRLWIND", "BLUDGEON"),
             "barricade" => HasToken(card, "BODYSLAM"),
+            "exhaust" => HasToken(card, "FIENDFIRE", "SECONDWIND", "BURNING"),
+            "bloodletting" or "self_wound" => HasToken(card, "REAPER", "HEMOKINESIS", "COMBUST", "RUPTURE"),
             "strike" => HasToken(card, "STRIKE", "PERFECTED"),
             "sly" or "grand_finale" => IsSilentSlyPayoffCard(card),
             "shiv" or "envenom" => IsSilentShivPayoffCard(card),

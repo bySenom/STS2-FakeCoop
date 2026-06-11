@@ -772,6 +772,7 @@ internal sealed class CombatActionScorer
         score += ScoreNecrobinderFutureValue(context, action, card);
         score += ScoreSilentFutureValue(context, action, card);
         score += ScoreDefectFutureValue(context, action, card);
+        score += ScoreIroncladFutureValue(context, action, card);
         return score;
     }
 
@@ -1106,6 +1107,151 @@ internal sealed class CombatActionScorer
             int clawCount = context.HandCardsByInstanceId.Values
                 .Count(c => HasCardToken(c, "CLAW"));
             score += 20 + clawCount * 18;
+        }
+
+        return score;
+    }
+
+    private static int ScoreIroncladFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        if (!string.Equals(context.CombatConfig.CharacterId, "ironclad", StringComparison.OrdinalIgnoreCase) &&
+            context.ActiveBuild?.Profile.CharacterId != "ironclad")
+        {
+            return 0;
+        }
+
+        int score = 0;
+        string buildId = context.ActiveBuild?.Profile.BuildId ?? string.Empty;
+
+        // Strength scaling
+        if (HasCardToken(card, "HEAVYBLADE", "SWORD"))
+        {
+            int strength = GetActorPowerAmount(context, "STRENGTH");
+            int perHit = Math.Max(1, 1 + strength);
+            score += strength * perHit * 4;
+            score += buildId == "strength" ? 28 : 14;
+            score += context.IsEliteOrBossCombat ? 16 : 8;
+        }
+
+        if (HasCardToken(card, "DEMONFORM"))
+        {
+            int horizon = GetFutureHorizon(context);
+            int strengthPerTurn = 3;
+            score += horizon * strengthPerTurn * 10;
+            score += buildId == "strength" ? 40 : 24;
+            score += context.IsEliteOrBossCombat ? 30 : 16;
+        }
+
+        if (HasCardToken(card, "LIMITBREAK"))
+        {
+            int strength = GetActorPowerAmount(context, "STRENGTH");
+            score += Math.Min(strength * 12, 100);
+            score += buildId == "strength" ? 28 : 14;
+        }
+
+        if (HasCardToken(card, "SWOLE", "SPOTWEAKNESS") || card.GetSelfStrengthAmount() > 0)
+        {
+            score += buildId == "strength" ? 24 : 12;
+            score += context.IsEliteOrBossCombat ? 14 : 6;
+        }
+
+        // Barricade / block retention
+        if (HasCardToken(card, "BARRICADE") || card.AppliesPower("BlockRetention"))
+        {
+            score += context.UsesBlockAsResource ? 50 : 28;
+            score += context.IsEliteOrBossCombat ? 24 : 12;
+        }
+
+        if (HasCardToken(card, "ENTRENCH"))
+        {
+            score += Math.Min(context.CurrentBlock * 6 / 2, 80);
+            score += buildId == "barricade" ? 30 : 16;
+        }
+
+        if (card.AppliesPower("BlockToDamage") || HasCardToken(card, "BODYSLAM"))
+        {
+            score += Math.Min(context.CurrentBlock * 6 / 2, 100);
+            score += buildId == "barricade" ? 32 : 16;
+            score += context.IsEliteOrBossCombat ? 18 : 8;
+        }
+
+        // Exhaust synergy
+        if (HasCardToken(card, "CORRUPTION"))
+        {
+            int skillCount = context.DeckCards.Count(c => c.CardId != card.CardId && c.Type == CardType.Skill);
+            score += Math.Min(skillCount, 12) * 10;
+            score += buildId == "exhaust" ? 44 : 26;
+            score += context.IsEliteOrBossCombat ? 24 : 12;
+        }
+
+        if (HasCardToken(card, "FEELNOPAIN"))
+        {
+            int horizon = GetFutureHorizon(context);
+            int blockPerExhaust = card.IsUpgraded ? 5 : 3;
+            int expectedExhausts = 2;
+            score += horizon * blockPerExhaust * expectedExhausts * 4;
+            score += buildId == "exhaust" ? 30 : 16;
+        }
+
+        if (HasCardToken(card, "DARKEMBRACE"))
+        {
+            score += buildId == "exhaust" ? 36 : 22;
+            score += context.IsEliteOrBossCombat ? 20 : 10;
+        }
+
+        // Exhaust payoff cards (Fiend Fire, Second Wind, Burning Pact)
+        if (card.Exhaust && (HasCardToken(card, "FIENDFIRE", "SECONDWIND", "BURNING")))
+        {
+            score += buildId == "exhaust" ? 30 : 16;
+        }
+
+        if (HasCardToken(card, "FIENDFIRE"))
+        {
+            int handSize = context.HandCardsByInstanceId.Count;
+            score += Math.Min(handSize * 10, 80);
+            score += buildId == "exhaust" ? 28 : 14;
+        }
+
+        // Bloodletting / self-wound synergy
+        if (HasCardToken(card, "RUPTURE"))
+        {
+            score += buildId is "bloodletting" or "self_wound" ? 34 : 18;
+            score += context.IsEliteOrBossCombat ? 20 : 10;
+        }
+
+        if (card.AppliesPower("SelfWound"))
+        {
+            score += buildId is "bloodletting" or "self_wound" ? 24 : 12;
+        }
+
+        if (HasCardToken(card, "REAPER"))
+        {
+            int strength = GetActorPowerAmount(context, "STRENGTH");
+            int healValue = Math.Max(1, 1 + strength) * 6 * 3;
+            score += Math.Min(healValue, 60);
+            score += buildId is "bloodletting" or "self_wound" ? 24 : 12;
+        }
+
+        // Strike build
+        if (buildId == "strike" && HasCardToken(card, "STRIKE", "PERFECTED"))
+        {
+            int strikeCount = context.HandCardsByInstanceId.Values.Count(c => HasCardToken(c, "STRIKE"));
+            score += 14 + strikeCount * 14;
+        }
+
+        // Offering
+        if (HasCardToken(card, "OFFERING"))
+        {
+            score += 32;
+            score += context.IsEliteOrBossCombat ? 24 : 14;
+        }
+
+        // Block on attack (Rage, Flame Barrier)
+        if (card.AppliesPower("BlockOnAttack"))
+        {
+            int attacksInHand = context.HandCardsByInstanceId.Values.Count(c => c.Type == CardType.Attack);
+            score += Math.Min(attacksInHand * 8, 40);
+            score += buildId == "barricade" ? 18 : 8;
         }
 
         return score;
