@@ -989,7 +989,21 @@ internal sealed class CombatActionScorer
 
         if (HasCardToken(card, "GRANDFINALE"))
         {
-            score += context.IsEliteOrBossCombat ? 40 : 20;
+            bool canFire = context.DrawPileCards?.Count == 0;
+            if (canFire)
+            {
+                score += 80;
+                score += context.IsEliteOrBossCombat ? 40 : 20;
+            }
+            else
+            {
+                int drawSize = context.DrawPileCards?.Count ?? 10;
+                score += drawSize <= 3 ? 30 : drawSize <= 6 ? 12 : 0;
+                if (drawSize > 6)
+                {
+                    score -= 24;
+                }
+            }
         }
 
         return score;

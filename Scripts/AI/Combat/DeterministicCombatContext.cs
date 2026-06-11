@@ -36,6 +36,14 @@ internal sealed class DeterministicCombatContext
 
     public bool IsEliteOrBossCombat => IsEliteCombat || IsBossCombat;
 
+    public IReadOnlyList<ResolvedCardView>? DrawPileCards { get; init; }
+
+    public IReadOnlyList<ResolvedCardView>? DiscardPileCards { get; init; }
+
+    public IReadOnlyList<ResolvedCardView>? ExhaustPileCards { get; init; }
+
+    public int CombatRoundNumber { get; init; }
+
     public bool HasBlockRetention =>
         ActorRelicIds.Contains("CALIPERS") ||
         ActorRelicIds.Contains("CALIPER") ||

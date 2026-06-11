@@ -48,6 +48,26 @@ internal sealed class DeterministicCombatContextBuilder
             .Select((card, index) => _cardResolver.Resolve(card, $"deck_{index}_{card.Id.Entry.Replace(':', '_').Replace('/', '_').Replace(' ', '_')}"))
             .ToList();
 
+        List<ResolvedCardView>? drawPileCards = null;
+        List<ResolvedCardView>? discardPileCards = null;
+        List<ResolvedCardView>? exhaustPileCards = null;
+        try
+        {
+            drawPileCards = PileType.Draw.GetPile(player).Cards
+                .Select((card, index) => _cardResolver.Resolve(card, $"draw_{index}_{card.Id.Entry.Replace(':', '_').Replace('/', '_').Replace(' ', '_')}"))
+                .ToList();
+            discardPileCards = PileType.Discard.GetPile(player).Cards
+                .Select((card, index) => _cardResolver.Resolve(card, $"discard_{index}_{card.Id.Entry.Replace(':', '_').Replace('/', '_').Replace(' ', '_')}"))
+                .ToList();
+            exhaustPileCards = PileType.Exhaust.GetPile(player).Cards
+                .Select((card, index) => _cardResolver.Resolve(card, $"exhaust_{index}_{card.Id.Entry.Replace(':', '_').Replace('/', '_').Replace(' ', '_')}"))
+                .ToList();
+        }
+        catch
+        {
+            // some pile types may not be accessible in all game states
+        }
+
         Dictionary<string, DeterministicEnemyState> enemiesById = new(StringComparer.Ordinal);
         int incomingDamage = 0;
         int combatRound = player.Creature.CombatState.RoundNumber;
@@ -94,7 +114,11 @@ internal sealed class DeterministicCombatContextBuilder
             IsBossCombat = roomTypeName.Contains("Boss", StringComparison.OrdinalIgnoreCase),
             IncomingDamage = incomingDamage,
             HandEndTurnDamage = handEndTurnDamage,
-            HandEndTurnHpLoss = handEndTurnHpLoss
+            HandEndTurnHpLoss = handEndTurnHpLoss,
+            DrawPileCards = drawPileCards,
+            DiscardPileCards = discardPileCards,
+            ExhaustPileCards = exhaustPileCards,
+            CombatRoundNumber = combatRound
         };
     }
 
