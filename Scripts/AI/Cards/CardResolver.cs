@@ -328,7 +328,7 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Sly", amount: 1);
         }
 
-        if (MatchesToken(text, "SNEAKY", "EVISCERATE"))
+        if (MatchesToken(text, "SNEAKY", "EVISCERATE", "RICOCHET"))
         {
             AddPowerIfMissing(effects, "SlyPayoff", amount: 1);
         }

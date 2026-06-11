@@ -920,6 +920,78 @@ internal sealed class CombatActionScorer
             score += buildId is "sly" or "grand_finale" ? 24 : 12;
         }
 
+        if (HasCardToken(card, "BANE"))
+        {
+            int targetPoison = 0;
+            if (!string.IsNullOrEmpty(action.TargetId) &&
+                context.EnemiesById.TryGetValue(action.TargetId, out DeterministicEnemyState? baneTarget))
+            {
+                targetPoison = GetEnemyPowerAmount(baneTarget, "POISON");
+            }
+            else
+            {
+                targetPoison = context.EnemiesById.Values.Max(static e => GetEnemyPowerAmount(e, "POISON"));
+            }
+
+            if (targetPoison > 0)
+            {
+                score += card.GetEstimatedDamage() * 6;
+            }
+
+            score += targetPoison > 0 ? 12 : 0;
+        }
+
+        if (HasCardToken(card, "AFTERIMAGE"))
+        {
+            int cardsPerTurn = 3;
+            int shivGenerators = context.HandCardsByInstanceId.Values
+                .Count(CombatBuildRoleEvaluator.IsSilentShivPayoffCard);
+            cardsPerTurn += shivGenerators * 2;
+            int slyEngines = context.HandCardsByInstanceId.Values
+                .Count(static c => c.AppliesPower("Sly"));
+            cardsPerTurn += slyEngines;
+            int blockPerCard = card.IsUpgraded ? 2 : 1;
+            int horizon = GetFutureHorizon(context);
+            score += Math.Min(cardsPerTurn * blockPerCard * horizon * 4, 100);
+            score += context.IsEliteOrBossCombat ? 20 : 10;
+        }
+
+        if (HasCardToken(card, "NIGHTMARE"))
+        {
+            int copies = card.IsUpgraded ? 2 : 1;
+            string selfInstanceId = action.CardInstanceId ?? string.Empty;
+            int bestCost = context.HandCardsByInstanceId.Values
+                .Where(c => c.CardId != card.CardId)
+                .Select(static c => c.EffectiveCost)
+                .DefaultIfEmpty(0)
+                .Max();
+            score += 40 + bestCost * 18;
+            score += copies > 1 ? 28 : 0;
+            score += context.IsEliteOrBossCombat ? 30 : 16;
+        }
+
+        if (HasCardToken(card, "BURST"))
+        {
+            int highValueSkills = context.HandCardsByInstanceId.Values
+                .Count(c => c.CardId != card.CardId &&
+                            c.Type == CardType.Skill &&
+                            (c.AppliesPower("Caltrops") ||
+                             c.AppliesPower("Intangible") ||
+                             c.AppliesPower("Sly") ||
+                             c.GetEstimatedBlock() >= 10 ||
+                             c.GetEnemyPoisonAmount() >= 5));
+            if (highValueSkills > 0)
+            {
+                score += highValueSkills * 20;
+                score += context.IsEliteOrBossCombat ? 20 : 10;
+            }
+        }
+
+        if (HasCardToken(card, "GRANDFINALE"))
+        {
+            score += context.IsEliteOrBossCombat ? 40 : 20;
+        }
+
         return score;
     }
 
