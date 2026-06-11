@@ -323,6 +323,16 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Intangible", amount: 1);
         }
 
+        if (MatchesToken(text, "SLY", "MASTERPLANNER", "ACROBATICS", "PREPARED", "REFLEX", "TACTICIAN", "CALCULATEDGAMBLE", "CONCENTRATE", "TOOLSOFTHETRADE"))
+        {
+            AddPowerIfMissing(effects, "Sly", amount: 1);
+        }
+
+        if (MatchesToken(text, "SNEAKY", "EVISCERATE"))
+        {
+            AddPowerIfMissing(effects, "SlyPayoff", amount: 1);
+        }
+
         if (effects.Count == baseEffects.Count &&
             effects.Count == 0 &&
             cardType is CardType.Skill or CardType.Power &&

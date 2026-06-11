@@ -812,6 +812,17 @@ internal sealed class CombatActionScorer
             score += context.IsEliteOrBossCombat ? 28 : 16;
         }
 
+        if (HasCardToken(card, "CORPSEEXPLOSION"))
+        {
+            int maxHpPool = context.EnemiesById.Values
+                .Sum(static e => e.Creature.MaxHp);
+            int currentHpPool = context.EnemiesById.Values
+                .Sum(static e => e.CurrentHp);
+            int explosionValue = Math.Min(maxHpPool, currentHpPool);
+            score += explosionValue * (isPoisonBuild ? 3 : 2);
+            score += context.IsEliteOrBossCombat ? 30 : 18;
+        }
+
         return score;
     }
 
@@ -884,11 +895,29 @@ internal sealed class CombatActionScorer
         if (card.AppliesPower("Shiv"))
         {
             int shivPayoffs = context.HandCardsByInstanceId.Values.Count(CombatBuildRoleEvaluator.IsSilentShivPayoffCard);
-            score += 28 + shivPayoffs * 14;
+            score += 20 + shivPayoffs * 12;
+            if (HasCardToken(card, "BLADEDANCE"))
+            {
+                int shivCount = card.IsUpgraded ? 6 : 4;
+                score += shivCount * 6 * 6;
+            }
+            else if (HasCardToken(card, "CLOAKANDDAGGER"))
+            {
+                int shivCount = card.IsUpgraded ? 3 : 2;
+                score += shivCount * 6 * 6;
+            }
             if (buildId is "shiv" or "envenom")
             {
                 score += 22;
             }
+        }
+
+        if (card.AppliesPower("SlyPayoff"))
+        {
+            int slyEngines = context.HandCardsByInstanceId.Values
+                .Count(static c => c.AppliesPower("Sly"));
+            score += slyEngines * 16;
+            score += buildId is "sly" or "grand_finale" ? 24 : 12;
         }
 
         return score;
