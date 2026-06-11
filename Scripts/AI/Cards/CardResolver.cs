@@ -263,6 +263,36 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Star", amount: 1);
         }
 
+        // Regent: Void Form power
+        if (MatchesToken(text, "VOIDFORM"))
+        {
+            AddPowerIfMissing(effects, "VoidForm", amount: 1);
+        }
+
+        // Regent: Bombardment charge-up
+        if (MatchesToken(text, "BOMBARD"))
+        {
+            AddPowerIfMissing(effects, "Bombardment", amount: 1);
+        }
+
+        // Regent: Forge application (weapon upgrades)
+        if (MatchesToken(text, "FORGE", "SOVEREIGN"))
+        {
+            AddPowerIfMissing(effects, "Forge", amount: 1);
+        }
+
+        // Regent: Weapon cards (forge build scaling)
+        if (MatchesToken(text, "SEEKING", "SWORD", "SAGE"))
+        {
+            AddPowerIfMissing(effects, "Weapon", amount: 1);
+        }
+
+        // Regent: Star payoff (big spenders)
+        if (MatchesToken(text, "BIGBANG", "BLACKHOLE"))
+        {
+            AddPowerIfMissing(effects, "StarPayoff", amount: 1);
+        }
+
         if (MatchesToken(text, "BODYGUARD", "GUARDIAN", "PROTECT"))
         {
             AddPowerIfMissing(effects, "OstyGuard", amount: 1, targetScope: TargetScope.SingleAlly);

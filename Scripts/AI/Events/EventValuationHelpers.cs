@@ -75,6 +75,7 @@ internal sealed class EventValuationHelpers
     public double EvaluateFixedCardGain(IEnumerable<string> cardIds, EventVisitState snapshot, List<string> reasons, AiEventTuning tuning)
     {
         double total = 0d;
+        string characterId = AiCharacterCombatConfigLoader.LoadForPlayer(snapshot.Player).CharacterId;
         foreach (string cardId in cardIds)
         {
             if (!CardCatalogRepository.Shared.TryGet(cardId, out CardCatalogEntry? entry) || entry == null)
@@ -86,11 +87,31 @@ internal sealed class EventValuationHelpers
             }
 
             double score = EvaluateCatalogCard(entry) * tuning.OutcomeWeights.FixedCardRewardMultiplier;
-            total += score;
-            reasons.Add($"fixedCard={entry.CardId} cardEval={score:F1}");
+            double characterBonus = GetCharacterCardBonus(characterId, entry);
+            total += score + characterBonus;
+            reasons.Add($"fixedCard={entry.CardId} cardEval={score:F1}" + (characterBonus != 0 ? $" charBonus={characterBonus:F1}" : ""));
         }
 
         return total;
+    }
+
+    private static double GetCharacterCardBonus(string characterId, CardCatalogEntry entry)
+    {
+        string upperId = entry.CardId.ToUpperInvariant();
+        return characterId.ToUpperInvariant() switch
+        {
+            "IRONCLAD" when upperId.Contains("STRIKE") || upperId.Contains("HEAVYBLADE") || upperId.Contains("BLUDGEON") || upperId.Contains("WHIRLWIND") || upperId.Contains("DEMONFORM") || upperId.Contains("BARRICADE") || upperId.Contains("BODYSLAM") => 4d,
+            "IRONCLAD" when upperId.Contains("FIENDFIRE") || upperId.Contains("CORRUPTION") || upperId.Contains("FNP") || upperId.Contains("FEELNOPAIN") || upperId.Contains("DARKEMBRACE") || upperId.Contains("RUPTURE") || upperId.Contains("BLOODLET") || upperId.Contains("OFFERING") || upperId.Contains("REAPER") => 3d,
+            "SILENT" when upperId.Contains("POISON") || upperId.Contains("NOXIOUS") || upperId.Contains("CATALYST") || upperId.Contains("BOUNCING") || upperId.Contains("ACCELERANT") => 4d,
+            "SILENT" when upperId.Contains("SHIV") || upperId.Contains("BLADEDANCE") || upperId.Contains("CLOAK") || upperId.Contains("FINISHER") || upperId.Contains("AFTERIMAGE") || upperId.Contains("ACCURACY") => 3d,
+            "SILENT" when upperId.Contains("SLY") || upperId.Contains("DISCARD") || upperId.Contains("ACROBATICS") || upperId.Contains("PREPARED") || upperId.Contains("TACTICIAN") || upperId.Contains("CALCULATED") || upperId.Contains("GRANDFINALE") || upperId.Contains("SNEAKY") || upperId.Contains("EVISCERATE") => 3d,
+            "DEFECT" when upperId.Contains("DEFRA") || upperId.Contains("FOCUS") || upperId.Contains("CAPACITOR") || upperId.Contains("ECHOFORM") || upperId.Contains("ORB") || upperId.Contains("BALL") || upperId.Contains("ZAP") || upperId.Contains("GLACIER") || upperId.Contains("COLD") || upperId.Contains("DARK") || upperId.Contains("DUALCAST") || upperId.Contains("MULTICAST") => 3d,
+            "DEFECT" when upperId.Contains("CLAW") || upperId.Contains("ALLFORONE") || upperId.Contains("SCRAPE") || upperId.Contains("STORM") || upperId.Contains("ELECTRODYNAMICS") || upperId.Contains("CREATIVEAI") => 3d,
+            "REGENT" when upperId.Contains("STAR") || upperId.Contains("GLOW") || upperId.Contains("CONVERGENCE") || upperId.Contains("VOID") || upperId.Contains("BIGBANG") || upperId.Contains("BLACKHOLE") || upperId.Contains("METEOR") || upperId.Contains("GAMMA") || upperId.Contains("BOMBARD") || upperId.Contains("KNOCKOUT") || upperId.Contains("PHOTON") || upperId.Contains("FORGE") || upperId.Contains("SOVEREIGN") || upperId.Contains("SEEKING") || upperId.Contains("CONQUEROR") || upperId.Contains("SWORD") || upperId.Contains("SAGE") || upperId.Contains("VENERATE") || upperId.Contains("DECISIONS") => 3d,
+            "NECROBINDER" when upperId.Contains("INVOKE") || upperId.Contains("DIRGE") || upperId.Contains("REANIMATE") || upperId.Contains("BORROWED") || upperId.Contains("BODYGUARD") || upperId.Contains("GUARDIAN") || upperId.Contains("PROTECT") || upperId.Contains("SUMMON") || upperId.Contains("SACRIFICE") || upperId.Contains("LETHALITY") => 4d,
+            "NECROBINDER" when upperId.Contains("SOUL") || upperId.Contains("HAUNT") || upperId.Contains("CAPTURE") || upperId.Contains("SPIRIT") || upperId.Contains("DEATHMARCH") || upperId.Contains("SOULSTORM") || upperId.Contains("SCYTHE") || upperId.Contains("ERADICATE") || upperId.Contains("UNLEASH") || upperId.Contains("COUNTDOWN") || upperId.Contains("REAPERFORM") || upperId.Contains("DANSE") || upperId.Contains("GRAVE") => 3d,
+            _ => 0d
+        };
     }
 
     public EventRemovalCandidate? SelectBestRemovalCandidate(EventVisitState snapshot)

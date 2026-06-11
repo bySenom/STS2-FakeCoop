@@ -359,6 +359,7 @@ internal sealed class CardChoiceEvaluator
         score += ScoreDefectContext(card, features, context);
         score += ScoreIroncladContext(card, features, context);
         score += ScoreRegentContext(card, features, context);
+        score += ScoreNecrobinderContext(card, features, context);
         return score;
     }
 
@@ -690,6 +691,79 @@ internal sealed class CardChoiceEvaluator
         if (HasToken(card, "GLOW", "CONVERGENCE", "DECISIONS"))
         {
             score += 12d + features.Draw * 3d + features.Energy * 4d;
+        }
+
+        return score;
+    }
+
+    private static double ScoreNecrobinderContext(ResolvedCardView card, CardFeatureVector features, CardEvaluationContext context)
+    {
+        if (!string.Equals(AiCharacterCombatConfigLoader.LoadForPlayer(context.Player).CharacterId, "necrobinder", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0d;
+        }
+
+        double score = 0d;
+        bool earlyAct = context.CurrentActIndex == 0 && context.TotalFloor <= 10;
+
+        // Osty summon setup — Dirge, Invoke, Reanimate, Borrowed Time
+        if (HasToken(card, "DIRGE", "INVOKE", "REANIMATE", "BORROWED"))
+        {
+            int ostyPayoffs = context.DeckCards.Count(static c => HasToken(c, "SACRIFICE", "LETHALITY", "BONESHARDS"));
+            score += 18d;
+            score += Math.Min(ostyPayoffs, 4) * 4d;
+            score += earlyAct ? 14d : 8d;
+        }
+
+        // Osty guard cards — Bodyguard, Guardian, Protect
+        if (HasToken(card, "BODYGUARD", "GUARDIAN", "PROTECT"))
+        {
+            int summonCards = context.DeckCards.Count(static c => HasToken(c, "INVOKE", "REANIMATE", "SUMMON"));
+            score += 14d;
+            score += summonCards > 0 ? 14d : 0d;
+        }
+
+        // Soul engine — Haunt, Capture Spirit, Soul
+        if (HasToken(card, "HAUNT", "CAPTURE", "SPIRIT", "SOUL"))
+        {
+            int soulPayoffs = context.DeckCards.Count(static c => HasToken(c, "SOULSTORM", "DEATHMARCH", "SCYTHE"));
+            score += 16d;
+            score += Math.Min(soulPayoffs, 4) * 5d;
+        }
+
+        // Soul payoff — Soul Storm, Death March, Scythe, Eradicate, Unleash
+        if (HasToken(card, "SOULSTORM", "DEATHMARCH", "SCYTHE", "ERADICATE", "UNLEASH"))
+        {
+            int soulSetup = context.DeckCards.Count(static c => HasToken(c, "HAUNT", "CAPTURE", "SPIRIT", "SOUL", "DIRGE", "BORROWED", "INVOKE"));
+            score += 18d;
+            score += Math.Min(soulSetup, 5) * 4d;
+            score += earlyAct ? 16d : 10d;
+        }
+
+        // Reaper Form — high-value scaling power
+        if (HasToken(card, "REAPERFORM"))
+        {
+            score += 30d;
+            score += earlyAct ? 16d : 8d;
+        }
+
+        // Countdown/Doom cards
+        if (HasToken(card, "COUNTDOWN"))
+        {
+            score += 14d;
+            score += earlyAct ? 10d : 6d;
+        }
+
+        // Engine cards — Borrowed Time, Danse Macabre, Grave Warden
+        if (HasToken(card, "DANSE", "GRAVEWARDEN"))
+        {
+            score += 12d + features.Draw * 3d + features.Energy * 4d;
+        }
+
+        // Lethality — strength scaling for necrobinder
+        if (HasToken(card, "LETHALITY"))
+        {
+            score += 20d;
         }
 
         return score;

@@ -258,6 +258,9 @@ internal static class CombatBuildRoleEvaluator
             "frost" or "lightning" or "dark_orb" or "creative_ai" => HasToken(card, "DEFRA", "CAPACITOR", "ECHO", "STORM", "MACHINE", "LOOP", "HEATSINK") || IsOrbSetupCard(card),
             "osty" or "soul" or "doom" or "reaper" => IsOstyGuardCard(card) || HasToken(card, "INVOKE", "BORROWED", "DIRGE", "REANIMATE", "HAUNT", "CAPTURE", "COUNTDOWN", "REAPERFORM", "SOUL"),
             "forge" or "star_burst" or "void_form" or "bombardment" => HasToken(card, "CONQUEROR", "SEEKING", "VOID") || IsStarSetupCard(card),
+            "strength" => HasToken(card, "LIMITBREAK", "SPOTWEAKNESS"),
+            "strike" => HasToken(card, "PERFECTEDSTRIKE"),
+            "self_wound" => HasToken(card, "RUPTURE", "BLOODLET"),
             "barricade" or "exhaust" or "bloodletting" => HasToken(card, "BARRICADE", "CORRUPTION", "DARKEMBRACE", "FEELNOPAIN", "RUPTURE"),
             _ => false
         };

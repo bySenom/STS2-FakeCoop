@@ -95,6 +95,13 @@ internal sealed class CardUpgradeEvaluator
             reasons.Add($"synergy upgrade {(synergyUpgradeScore >= 0 ? "+" : string.Empty)}{synergyUpgradeScore:F1}: {reason}");
         }
 
+        double characterUpgradeBonus = GetCharacterUpgradeBonus(context, resolved);
+        if (characterUpgradeBonus != 0)
+        {
+            score += characterUpgradeBonus;
+            reasons.Add($"character upgrade bonus +{characterUpgradeBonus:F1}");
+        }
+
         if (resolved.Type == CardType.Power || resolved.GetSelfStrengthAmount() > 0 || resolved.GetSelfDexterityAmount() > 0)
         {
             score += 3d;
@@ -170,6 +177,46 @@ internal sealed class CardUpgradeEvaluator
 
         reasons.Add($"upgradeSpecScore={score:F1}");
         return score;
+    }
+
+    private static double GetCharacterUpgradeBonus(CardEvaluationContext context, ResolvedCardView card)
+    {
+        string characterId = AiCharacterCombatConfigLoader.LoadForPlayer(context.Player).CharacterId;
+        if (string.IsNullOrEmpty(characterId))
+        {
+            return 0d;
+        }
+
+        string upperName = AiBuildProfileAnalyzer.Normalize(card.Name);
+        string upperId = AiBuildProfileAnalyzer.Normalize(card.CardId);
+        string combined = upperName + " " + upperId;
+        double bonus = 0d;
+
+        switch (characterId.ToUpperInvariant())
+        {
+            case "IRONCLAD":
+                if (combined.Contains("HEAVYBLADE") || combined.Contains("DEMONFORM") || combined.Contains("BARRICADE") || combined.Contains("BODYSLAM") || combined.Contains("CORRUPTION") || combined.Contains("FIENDFIRE") || combined.Contains("FEELNOPAIN") || combined.Contains("DARKEMBRACE") || combined.Contains("OFFERING") || combined.Contains("RUPTURE") || combined.Contains("REAPER") || combined.Contains("LIMITBREAK") || combined.Contains("IMPERVIOUS") || combined.Contains("ENTRENCH"))
+                    bonus = 5d;
+                break;
+            case "SILENT":
+                if (combined.Contains("CATALYST") || combined.Contains("NOXIOUS") || combined.Contains("ACCELERANT") || combined.Contains("WRAITHFORM") || combined.Contains("AFTERIMAGE") || combined.Contains("BLADEDANCE") || combined.Contains("GRANDFINALE") || combined.Contains("EVISCERATE") || combined.Contains("ALCHEMIZE") || combined.Contains("BURST"))
+                    bonus = 5d;
+                break;
+            case "DEFECT":
+                if (combined.Contains("DEFRA") || combined.Contains("ECHOFORM") || combined.Contains("CAPACITOR") || combined.Contains("ELECTRODYNAMICS") || combined.Contains("MULTICAST") || combined.Contains("CLAW") || combined.Contains("ALLFORONE") || combined.Contains("BIAS") || combined.Contains("CONSUME") || combined.Contains("CREATIVEAI"))
+                    bonus = 5d;
+                break;
+            case "REGENT":
+                if (combined.Contains("VOIDFORM") || combined.Contains("BIGBANG") || combined.Contains("BLACKHOLE") || combined.Contains("BOMBARD") || combined.Contains("METEOR") || combined.Contains("GAMMA") || combined.Contains("CONQUEROR") || combined.Contains("FORGE") || combined.Contains("SWORD") || combined.Contains("SAGE") || combined.Contains("VENERATE") || combined.Contains("CONVERGENCE"))
+                    bonus = 5d;
+                break;
+            case "NECROBINDER":
+                if (combined.Contains("SOULSTORM") || combined.Contains("REAPERFORM") || combined.Contains("INVOKE") || combined.Contains("DIRGE") || combined.Contains("SACRIFICE") || combined.Contains("LETHALITY") || combined.Contains("SOUL") || combined.Contains("HAUNT") || combined.Contains("CAPTURE") || combined.Contains("DEATHMARCH") || combined.Contains("SCYTHE") || combined.Contains("ERADICATE") || combined.Contains("UNLEASH") || combined.Contains("COUNTDOWN") || combined.Contains("BORROWED"))
+                    bonus = 5d;
+                break;
+        }
+
+        return bonus;
     }
 }
 
