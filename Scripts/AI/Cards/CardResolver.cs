@@ -268,7 +268,7 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "OstyGuard", amount: 1, targetScope: TargetScope.SingleAlly);
         }
 
-        if (MatchesToken(text, "BORROWEDTIME", "RIGHTHANDHAND", "SOUL", "HAUNT", "CAPTURE", "SPIRIT", "DIRGE"))
+        if (MatchesToken(text, "BORROWEDTIME", "RIGHTHANDHAND", "SOUL", "HAUNT", "CAPTURE", "SPIRIT", "DIRGE", "GRAVEWARDEN"))
         {
             AddPowerIfMissing(effects, "Soul", amount: 1);
         }
@@ -301,6 +301,16 @@ internal sealed class CardResolver : ICardResolver
         if (MatchesToken(text, "REAPERFORM"))
         {
             AddPowerIfMissing(effects, "ReaperForm", amount: 1);
+        }
+
+        if (MatchesToken(text, "BONESHARDS"))
+        {
+            AddPowerIfMissing(effects, "OstySacrifice", amount: 1);
+        }
+
+        if (MatchesToken(text, "LETHALITY"))
+        {
+            AddPowerIfMissing(effects, "Lethality", amount: 1);
         }
 
         if (effects.Count == baseEffects.Count &&

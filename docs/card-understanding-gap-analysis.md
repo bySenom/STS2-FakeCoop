@@ -196,21 +196,37 @@
 - **ScoreNecrobinderFutureValue** (CombatActionScorer:898–935): Soul cards get +76 + 28 (energy>0); OstyGuard +34/22; high-damage soul/osty/death/unleash/reaper/scythe cards get damage scaling
 - **CombatTurnLinePlanner** (lines 722–762, 776–808, 850): Late-draw energy=0 penalty applied in Apply, ScoreBuildRotation, and LineNode
 
-### Mechanic-Level Inferred Effects (New)
-Added in `CardResolver.AddInferredSemanticEffects` (see `docs/modding-decisions.md#Necrobinder Mechanics Modeling`):
-- **SummonOsty** (Invoke, Reanimate) — virtual power; gets future-turn scoring bonus (32–48, +8–18 on elite/boss)
-- **SummonAlly** (Summon) — virtual power; gets setup scoring (22–34)
-- **Sacrifice** (Sacrifice) — virtual power; bonus +36 if hand has a summon card, plus setup score (10–20)
-- **Countdown** (Countdown) — virtual power; gets future value (14–22)
-- **ReaperForm** (Reaper Form) — virtual power; gets power-like future value (36–52, +12–24 on elite/boss)
+### All Necrobinder Mechanics Now Modeled (Tier 2+4)
 
-### Remaining Gaps
-- Bodyguard (damage redirect to ally) — token-matched as OstyGuard setup but redirect not effect-modeled
-- The Scythe, Eradicate — listed but mechanics not effect-modeled (likely big damage, handled via dynamic vars)
-- Lethality — temporary strength buff, not effect-modeled
+All 18 Necrobinder cards from the build archetypes now have effect-level understanding and scoring:
+
+| Card | Virtual Power / Token | Scoring |
+|------|----------------------|---------|
+| Bodyguard | `OstyGuard` | Setup priority, damage-redirect value (32–42) |
+| Borrowed Time | `Soul` + early soul card | +80/+10 setup, +64, +76 future |
+| Right Hand Hand | `Soul` + early soul card | Same as Borrowed Time |
+| Haunt | `Soul` (via HAUNT token) | Soul engine setup |
+| Capture Spirit | `Soul` (via CAPTURE, SPIRIT) | Soul generation + unblockable damage |
+| Dirge | `Soul` (via DIRGE) | X-cost summon + Soul generation |
+| Grave Warden | `Soul` (via GRAVEWARDEN) | Block + Soul generation, archetype support |
+| Invoke | `SummonOsty` | Summon companion (32–48, +8–18 elite) |
+| Reanimate | `SummonOsty` | Revive companion (32–48, +8–18 elite) |
+| Summon | `SummonAlly` | Summon ally (22–34) |
+| Sacrifice | `Sacrifice` | +36 if summon in hand (10–20) |
+| Countdown | `Countdown` | Doom-per-turn delayed damage (14–22) |
+| Reaper Form | `ReaperForm` | Transformation (36–52, +12–24 elite) |
+| Soul Storm | Token SOULSTORM | Soul-scaling damage (+14 per soul card in hand, 14–26 base) |
+| Death March | Token DEATHMARCH | Draw-scaling damage (+14 per draw card in hand, 12–22 base) |
+| The Scythe | Token SCYTHE | Scaling exhaust attack (+22 exhaust, 10–20 base) |
+| Eradicate | Token ERADICATE | X-cost retain multi-hit (+14 per energy, +12 retain, 8–18 base) |
+| Lethality | `Lethality` | Ethereal power, +4 per attack damage in hand (18–28 base) |
+| Bone Shards | `OstySacrifice` | Osty sacrifice AOE (+48 if Osty build/summon, 18–30 base) |
+| Danse Macabre | Token DANSEMACABRE | Block power, +10 per 2+ cost card in hand (10–18 base) |
+
+### Remaining Gaps (Minor)
 - SpoilsMap/SpoilsOfBattle — token-matched with Spoils effect but mechanic not further modeled
-- Grave Warden, Danse Macabre — listed but mechanics not effect-modeled
-- Soul Storm, Death March — payoff cards; damage likely handled via dynamic vars but soul-consumption tradeoff not modeled
+- Soul Storm / Death March exact scaling formula (soul count / draw count in exhaust/drawn pile) — approximated via hand context
+- The Scythe permanent damage increase not tracked across plays
 
 ---
 
@@ -243,14 +259,14 @@ Added in `CardResolver.AddInferredSemanticEffects` (see `docs/modding-decisions.
 | **Silent** | 6 | ~45 listed | Sly engine, poison future, shiv setup, starter strike penalty | Discard-as-engine at effect level, phantasmal, bullet time, bane, choke, defense-as-attack |
 | **Defect** | 5 | ~30 listed | Orb setup/starter strike penalty | Fission, rainbow, buffer, reboot, amplify, force field cost reduction, block conditionals |
 | **Regent** | 4 | ~25 listed | Star setup/starter strike penalty | Specific star/forge mechanics, void form persistent, forge upgrade mechanic |
-| **Necrobinder** | 4 | ~20 listed | **Extensive** — soul cards in 3 scoring layers + SummonOsty/Countdown/ReaperForm/Sacrifice bonuses | Bodyguard redirect, Soul Storm/Death March soul-consumption tradeoff, remaining unlisted cards |
+| **Necrobinder** | 4 | 18 listed | **Full** — soul, summon, sacrifice, countdown, reaper, lethality, ethereal, osty-sacrifice, soul-storm, death-march, eradicate, scythe, danse-macabre all with effects + scoring | Spoils mechanic (minor), Scythe permanent scaling not tracked across plays |
 | **Colorless** | 0 | 0 listed | None | All colorless cards are effect-blind beyond basic damage/block/draw |
 
 ---
 
 ## Recommended Implementation Priority
 
-1. ~~**Necrobinder** cards outside soul/osty archetype~~ — SummonOsty, SummonAlly, Sacrifice, Countdown, ReaperForm effects + scoring added (Invoke, Summon, Sacrifice, Reanimate, Countdown, Reaper Form). Remaining: Bodyguard redirect, Soul Storm/Death March soul-consumption tradeoff.
+1. ~~**Necrobinder** cards outside soul/osty archetype~~ — All 18 Necrobinder archetype cards now have effect-level understanding + scoring. See gap analysis Necrobinder section for complete table.
 2. **Ironclad exhaust/wound synergy** — status generation cards not modeled as setup
 3. **Silent discard-engine cards** (Tactician, Reflex, Calculated Gamble) — listed in builds but discard trigger not effect-modeled
 4. **Colorless cards** — enhance basic effect parsing or add special cases for major ones (Apotheosis, The Bomb, etc.)

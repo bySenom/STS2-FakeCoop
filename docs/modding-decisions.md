@@ -261,8 +261,24 @@
 ## Necrobinder Mechanics Modeling
 
 - Patch points: `CardResolver.AddInferredSemanticEffects`, `CombatActionScorer.ScoreNecrobinderFutureValue`.
-- Decision: add virtual power effects for Necrobinder-specific mechanics beyond soul/osty: `SummonOsty` (Invoke, Reanimate), `SummonAlly` (Summon), `Sacrifice`, `Countdown`, `ReaperForm`. Each gets corresponding future-turn scoring bonuses.
-- Reasoning: archetype token-matching already classified these cards as setup/payoff, but the AI had no effect-level understanding of what they do. The new effects let the scorer give targeted bonuses: SummonOsty cards are valuable because the Osty companion provides ongoing value, Countdown cards are delayed damage worth more in long fights, Sacrifice cards gain extra value when an ally/hand summon is present, and ReaperForm is a high-impact transformation.
+- Decision: add virtual power effects for Necrobinder-specific mechanics beyond soul/osty: `SummonOsty` (Invoke, Reanimate), `SummonAlly` (Summon), `Sacrifice`, `Countdown`, `ReaperForm`, `OstySacrifice` (Bone Shards), `Lethality` (ethereal power). Each gets corresponding future-turn scoring bonuses.
+- Reasoning: archetype token-matching already classified these cards as setup/payoff, but the AI had no effect-level understanding of what they do. The new effects let the scorer give targeted bonuses.
 - Virtual-power policy: follow the existing pattern for Orbs/Stars/Soul where `AddPowerIfMissing` adds an `ApplyPower` effect with a custom `AppliedPowerId`. The AI treats these as virtual resources the card generates, using the same effect-level tracking as other inferred powers.
-- Synergy scoring: Sacrifice cards check the current hand for existing SummonOsty/SummonAlly cards and add +36 when an ally is available for sacrifice. ReaperForm and SummonOsty get elite/boss combat bonuses.
-- Verification: with a Necrobinder hand containing Invoke, the `future=...` log value should be higher; Countdown cards should show a nontrivial `future=` score even when immediate damage is zero.
+
+### Second Batch — Remaining Necrobinder Cards (Batch 2)
+- Patch points (additions): `CardResolver.AddInferredSemanticEffects` (GRAVEWARDEN → Soul, BONESHARDS → OstySacrifice, LETHALITY → Lethality), `CombatActionScorer.ScoreNecrobinderFutureValue`.
+- Cards added: Grave Warden (Soul generation), Soul Storm (soul-scaling damage), Death March (draw-scaling damage), The Scythe (scaling exhaust attack), Eradicate (X-cost retain multi-hit), Lethality (ethereal power + attack boost), Bone Shards (Osty sacrifice AOE), Danse Macabre (block power triggered by high-cost cards).
+
+### Scoring Details
+| Card | Scoring Logic |
+|------|--------------|
+| Soul Storm | +14 per Soul-tagged card in hand (cap 8), +14–26 locked base |
+| Death March | +14 per draw card in hand, +12–22 locked base |
+| The Scythe | +22 for Exhaust, +10–20 locked base |
+| Eradicate | +14 per energy to spend, +12 for Retain, +8–18 locked base |
+| Lethality | +4 per attack damage in hand (cap 30*4), +18–28 locked base |
+| Bone Shards | +48 if Osty build/summon in hand, +18–30 locked base |
+| Danse Macabre | +10 per 2+ cost card in hand, +10–18 locked base |
+| Grave Warden | Soul effect (soul generation) + existing archetype support scoring |
+
+- Verification: with a Necrobinder hand containing Soul Storm and 3 Soul cards, the `future=...` log should show a bonus for soul-scaling; Lethality should get extra value proportional to held attack damage.

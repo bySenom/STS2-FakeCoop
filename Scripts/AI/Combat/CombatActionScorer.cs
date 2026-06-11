@@ -958,6 +958,66 @@ internal sealed class CombatActionScorer
             score += context.IsEliteOrBossCombat ? 24 : 12;
         }
 
+        if (HasCardToken(card, "SOULSTORM"))
+        {
+            int soulCardsInHand = context.HandCardsByInstanceId.Values
+                .Count(static c => c.AppliesPower("Soul"));
+            score += Math.Min(soulCardsInHand, 8) * 14;
+            score += context.ActiveBuild?.IsLocked == true ? 26 : 14;
+            score += context.IsEliteOrBossCombat ? 14 : 6;
+        }
+
+        if (HasCardToken(card, "DEATHMARCH"))
+        {
+            int drawCardsInHand = context.HandCardsByInstanceId.Values
+                .Count(static c => c.GetCardsDrawn() > 0);
+            score += drawCardsInHand * 14;
+            score += context.ActiveBuild?.IsLocked == true ? 22 : 12;
+        }
+
+        if (HasCardToken(card, "SCYTHE"))
+        {
+            score += card.Exhaust ? 22 : 0;
+            score += context.ActiveBuild?.IsLocked == true ? 20 : 10;
+        }
+
+        if (HasCardToken(card, "ERADICATE"))
+        {
+            int energyToSpend = Math.Max(context.Energy, 1);
+            score += energyToSpend * 14;
+            score += card.Retain ? 12 : 0;
+            score += context.ActiveBuild?.IsLocked == true ? 18 : 8;
+        }
+
+        if (card.AppliesPower("Lethality"))
+        {
+            int handAttackDamage = context.HandCardsByInstanceId.Values
+                .Where(static c => c.Type == CardType.Attack)
+                .Sum(static c => c.GetEstimatedDamage());
+            score += Math.Min(handAttackDamage, 30) * 4;
+            score += context.ActiveBuild?.IsLocked == true ? 28 : 18;
+        }
+
+        if (card.AppliesPower("OstySacrifice"))
+        {
+            bool hasOstySummon = context.HandCardsByInstanceId.Values
+                .Any(static c => c.AppliesPower("SummonOsty") || c.AppliesPower("SummonAlly"));
+            if (hasOstySummon || context.ActiveBuild?.Profile.BuildId == "osty")
+            {
+                score += 48;
+            }
+
+            score += context.ActiveBuild?.IsLocked == true ? 30 : 18;
+        }
+
+        if (HasCardToken(card, "DANSEMACABRE"))
+        {
+            int highCostCards = context.HandCardsByInstanceId.Values
+                .Count(static c => c.EffectiveCost >= 2);
+            score += highCostCards * 10;
+            score += context.ActiveBuild?.IsLocked == true ? 18 : 10;
+        }
+
         if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
             HasAffordableHigherBuildDamageAction(context, action, damage))
         {
