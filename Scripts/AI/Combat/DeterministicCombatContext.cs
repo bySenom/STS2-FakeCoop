@@ -44,6 +44,42 @@ internal sealed class DeterministicCombatContext
 
     public int CombatRoundNumber { get; init; }
 
+    public int FocusLevel => GetActorPowerAmountAny("Focus", "FOCUS");
+
+    public int OrbSlots
+    {
+        get
+        {
+            int baseSlots = 3;
+            if (ActorPowerAmounts.TryGetValue("OrbSlot", out int slotPower))
+            {
+                baseSlots += slotPower;
+            }
+            if (ActorPowerAmounts.TryGetValue("ORB_SLOT", out int slotPower2))
+            {
+                baseSlots += slotPower2;
+            }
+            if (ActorRelicIds.Contains("INSERTER"))
+            {
+                baseSlots += 1;
+            }
+            return baseSlots;
+        }
+    }
+
+    private int GetActorPowerAmountAny(string key1, string key2)
+    {
+        if (ActorPowerAmounts.TryGetValue(key1, out int amount))
+        {
+            return amount;
+        }
+        if (ActorPowerAmounts.TryGetValue(key2, out amount))
+        {
+            return amount;
+        }
+        return 0;
+    }
+
     public bool HasBlockRetention =>
         ActorRelicIds.Contains("CALIPERS") ||
         ActorRelicIds.Contains("CALIPER") ||

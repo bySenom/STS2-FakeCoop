@@ -771,6 +771,7 @@ internal sealed class CombatActionScorer
         score += ScorePersistentEngineFutureValue(context, card);
         score += ScoreNecrobinderFutureValue(context, action, card);
         score += ScoreSilentFutureValue(context, action, card);
+        score += ScoreDefectFutureValue(context, action, card);
         return score;
     }
 
@@ -1004,6 +1005,72 @@ internal sealed class CombatActionScorer
                     score -= 24;
                 }
             }
+        }
+
+        return score;
+    }
+
+    private static int ScoreDefectFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        if (!string.Equals(context.CombatConfig.CharacterId, "defect", StringComparison.OrdinalIgnoreCase) &&
+            context.ActiveBuild?.Profile.CharacterId != "defect")
+        {
+            return 0;
+        }
+
+        int score = 0;
+        string buildId = context.ActiveBuild?.Profile.BuildId ?? string.Empty;
+        bool isOrbBuild = buildId is "lightning" or "frost" or "dark_orb" or "creative_ai";
+
+        if (card.AppliesPower("LightningOrb") || card.AppliesPower("FrostOrb") || card.AppliesPower("DarkOrb"))
+        {
+            int orbSlots = context.OrbSlots;
+            int focus = context.FocusLevel;
+            int lightningDmg = orbSlots * (3 + focus);
+            int frostBlock = orbSlots * (2 + focus);
+            int horizon = GetFutureHorizon(context);
+            score += Math.Min(lightningDmg * 5 * horizon, 120);
+            score += Math.Min(frostBlock * 4 * horizon, 80);
+            score += isOrbBuild ? 20 : 8;
+        }
+
+        if (card.AppliesPower("Focus"))
+        {
+            int focusGain = card.GetAppliedPowerAmount("Focus");
+            if (focusGain > 0)
+            {
+                int currentOrbSlots = context.OrbSlots;
+                int projectedDmg = currentOrbSlots * 3 * focusGain;
+                int projectedBlock = currentOrbSlots * 2 * focusGain;
+                score += Math.Min(projectedDmg * 4, 80);
+                score += Math.Min(projectedBlock * 4, 60);
+                score += isOrbBuild ? 28 : 14;
+            }
+        }
+
+        if (card.AppliesPower("OrbSlot"))
+        {
+            int newSlots = 2;
+            int focus = context.FocusLevel;
+            int addedDmg = newSlots * (3 + focus);
+            int addedBlock = newSlots * (2 + focus);
+            score += Math.Min(addedDmg * 5, 70);
+            score += Math.Min(addedBlock * 5, 50);
+            score += context.IsEliteOrBossCombat ? 20 : 10;
+        }
+
+        if (card.AppliesPower("OrbEvoke"))
+        {
+            int orbSlots = context.OrbSlots;
+            score += orbSlots * 12;
+            score += isOrbBuild ? 24 : 12;
+        }
+
+        if (buildId == "claw" && HasCardToken(card, "CLAW"))
+        {
+            int clawCount = context.HandCardsByInstanceId.Values
+                .Count(c => HasCardToken(c, "CLAW"));
+            score += 20 + clawCount * 18;
         }
 
         return score;
