@@ -356,6 +356,7 @@ internal sealed class CardChoiceEvaluator
         }
 
         score += ScoreSilentContext(card, features, context);
+        score += ScoreDefectContext(card, features, context);
         return score;
     }
 
@@ -406,6 +407,83 @@ internal sealed class CardChoiceEvaluator
 
         if (HasToken(card, "BLADEDANCE", "CLOAKANDDAGGER", "SHIV", "FANOFKNIVES"))
         {
+            score += earlyAct ? 14d : 8d;
+        }
+
+        return score;
+    }
+
+    private static double ScoreDefectContext(ResolvedCardView card, CardFeatureVector features, CardEvaluationContext context)
+    {
+        if (!string.Equals(AiCharacterCombatConfigLoader.LoadForPlayer(context.Player).CharacterId, "defect", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0d;
+        }
+
+        double score = 0d;
+        bool earlyAct = context.CurrentActIndex == 0 && context.TotalFloor <= 10;
+        bool hasOrbEvidence = context.DeckCards.Any(static c =>
+            HasToken(c, "ZAP", "BALLLIGHTNING", "COLDSNAP", "GLACIER", "DARKNESS"));
+
+        if (HasToken(card, "DEFRA", "FOCUS"))
+        {
+            score += 28d;
+            score += hasOrbEvidence ? 16d : 0d;
+        }
+
+        if (HasToken(card, "ZAP", "BALLLIGHTNING", "LIGHTNING"))
+        {
+            score += earlyAct ? 22d : 14d;
+        }
+
+        if (HasToken(card, "COLDSNAP", "FROST", "GLACIER", "CHILL", "COOLHEADED"))
+        {
+            score += earlyAct ? 18d : 12d;
+        }
+
+        if (HasToken(card, "DARKNESS", "DARK"))
+        {
+            score += 14d;
+            score += context.DeckCards.Count(static c => HasToken(c, "DUALCAST", "MULTICAST", "RECURSION")) > 0 ? 12d : 0d;
+        }
+
+        if (HasToken(card, "CAPACITOR"))
+        {
+            score += 20d;
+            score += hasOrbEvidence ? 14d : 0d;
+        }
+
+        if (HasToken(card, "ECHOFORM"))
+        {
+            score += 30d;
+        }
+
+        if (HasToken(card, "ELECTRODYNAMICS"))
+        {
+            int lightningCards = context.DeckCards.Count(static c => HasToken(c, "ZAP", "BALLLIGHTNING", "LIGHTNING", "STATIC"));
+            score += 22d + Math.Min(lightningCards, 6) * 4d;
+        }
+
+        if (HasToken(card, "CLAW"))
+        {
+            int clawCount = context.DeckCards.Count(static c => HasToken(c, "CLAW"));
+            score += 18d + clawCount * 6d;
+        }
+
+        if (HasToken(card, "ALLFORONE", "SCRAPE"))
+        {
+            int zeroCostCount = context.DeckCards.Count(static c => c.EffectiveCost == 0);
+            score += 14d + Math.Min(zeroCostCount, 8) * 3d;
+        }
+
+        if (HasToken(card, "DUALCAST", "MULTICAST"))
+        {
+            score += hasOrbEvidence ? 18d : 8d;
+        }
+
+        if (HasToken(card, "TURBO"))
+        {
+            score += features.Energy * 4d;
             score += earlyAct ? 14d : 8d;
         }
 
