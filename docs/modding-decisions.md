@@ -257,3 +257,12 @@
 - Reasoning: telemetry showed repeated `late_draw_no_energy` for Soul and Neurosurge plays at energy=0 with scores as high as 366-420. Drawing cards when no energy remains to play them wastes line slots and delays actual damage/block actions. Long Necro/Soul chains consumed all 5 beam slots without leaving room for impactful cards.
 - Line-planning changes: in `ScoreBuildRotation`, late soul cards with `EnergyRemaining <= 0` now return -24 (was +24). In `Apply`, late soul cards with no energy now subtract 12 instead of adding 18. Same pattern applied to Silent Sly engine cards.
 - Verification: `late_draw_no_energy` diagnosis should still fire when draw is chosen at energy=0, but the chosen action should no longer be the draw card itself when non-draw alternatives exist. The score for zero-energy draw plays should be significantly lower than alternatives.
+
+## Necrobinder Mechanics Modeling
+
+- Patch points: `CardResolver.AddInferredSemanticEffects`, `CombatActionScorer.ScoreNecrobinderFutureValue`.
+- Decision: add virtual power effects for Necrobinder-specific mechanics beyond soul/osty: `SummonOsty` (Invoke, Reanimate), `SummonAlly` (Summon), `Sacrifice`, `Countdown`, `ReaperForm`. Each gets corresponding future-turn scoring bonuses.
+- Reasoning: archetype token-matching already classified these cards as setup/payoff, but the AI had no effect-level understanding of what they do. The new effects let the scorer give targeted bonuses: SummonOsty cards are valuable because the Osty companion provides ongoing value, Countdown cards are delayed damage worth more in long fights, Sacrifice cards gain extra value when an ally/hand summon is present, and ReaperForm is a high-impact transformation.
+- Virtual-power policy: follow the existing pattern for Orbs/Stars/Soul where `AddPowerIfMissing` adds an `ApplyPower` effect with a custom `AppliedPowerId`. The AI treats these as virtual resources the card generates, using the same effect-level tracking as other inferred powers.
+- Synergy scoring: Sacrifice cards check the current hand for existing SummonOsty/SummonAlly cards and add +36 when an ally is available for sacrifice. ReaperForm and SummonOsty get elite/boss combat bonuses.
+- Verification: with a Necrobinder hand containing Invoke, the `future=...` log value should be higher; Countdown cards should show a nontrivial `future=` score even when immediate damage is zero.

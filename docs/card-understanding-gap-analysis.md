@@ -10,7 +10,7 @@
 |------|-------|-------------------|-------|
 | **0** | Catalog | CardId, Name, Cost, Type, Rarity, TargetType, description text, Keywords, Tags, Flags (Exhaust/Ethereal/Retain/Innate), DynamicVars | **ALL cards** — auto-built from `ModelDb.AllCards` in `CardCatalogBuilder.Build()` |
 | **1** | Basic Effects | Damage, Block, Vulnerable, Weak, Strength, Dexterity, Poison, Draw, Energy — parsed from dynamic vars or regex | Cards using standard dynamic var names (most common/basic cards). **Will miss** cards whose vars use non-standard names |
-| **2** | Token-Inferred Effects | LightningOrb, FrostOrb, DarkOrb, OrbEvoke, OrbSlot, Focus, Star, OstyGuard, Soul, Spoils, UnknownSetup | Only specific card IDs matched in `CardResolver.AddInferredSemanticEffects` (lines 220–294) |
+| **2** | Token-Inferred Effects | LightningOrb, FrostOrb, DarkOrb, OrbEvoke, OrbSlot, Focus, Star, OstyGuard, Soul, Spoils, SummonOsty, SummonAlly, Sacrifice, Countdown, ReaperForm, UnknownSetup | Only specific card IDs matched in `CardResolver.AddInferredSemanticEffects` (lines 220–294) |
 | **3** | Archetype Role | Cards classified as Setup/Payoff/Cycle/Defense/Finisher/Avoid within active build via `CombatBuildRoleEvaluator` | Cards explicitly listed in `AiBuildArchetypeCatalog` or matched by token patterns in role classification |
 | **4** | Special Scoring | Bonus/penalty scores for specific card families (Necrobinder soul, Silent sly engine, poison, shiv, orb/stars setup) | Cards matched by `CombatBuildRoleEvaluator.Is*` methods called in `CombatActionScorer` and `CombatTurnLinePlanner` |
 | **5** | Full Strategic Model | Complex conditional effects modeled (e.g., BodySlam = block-as-damage, Finisher = attacks-spent, Catalyst = poison-multiply) | **Very few** — only cards with special-case logic in scorer or planner |
@@ -196,16 +196,21 @@
 - **ScoreNecrobinderFutureValue** (CombatActionScorer:898–935): Soul cards get +76 + 28 (energy>0); OstyGuard +34/22; high-damage soul/osty/death/unleash/reaper/scythe cards get damage scaling
 - **CombatTurnLinePlanner** (lines 722–762, 776–808, 850): Late-draw energy=0 penalty applied in Apply, ScoreBuildRotation, and LineNode
 
-### Gaps
-- Invoke (summon Osty) — listed in Osty core but summon mechanics not modeled
-- Summon, Sacrifice, Reanimate — Osty/soul synergy but mechanics not effect-modeled
-- Bodyguard (damage redirect to ally) — only token-matched as setup, redirection not modeled
-- Reaper Form, The Scythe — listed in Reaper build but mechanics not effect-modeled
-- Countdown — listed but delayed-damage mechanic not modeled
-- Lethality — temporary strength buff, not modeled
-- SpoilsMap/SpoilsOfBattle — token-matched but spoils mechanic not modeled
+### Mechanic-Level Inferred Effects (New)
+Added in `CardResolver.AddInferredSemanticEffects` (see `docs/modding-decisions.md#Necrobinder Mechanics Modeling`):
+- **SummonOsty** (Invoke, Reanimate) — virtual power; gets future-turn scoring bonus (32–48, +8–18 on elite/boss)
+- **SummonAlly** (Summon) — virtual power; gets setup scoring (22–34)
+- **Sacrifice** (Sacrifice) — virtual power; bonus +36 if hand has a summon card, plus setup score (10–20)
+- **Countdown** (Countdown) — virtual power; gets future value (14–22)
+- **ReaperForm** (Reaper Form) — virtual power; gets power-like future value (36–52, +12–24 on elite/boss)
+
+### Remaining Gaps
+- Bodyguard (damage redirect to ally) — token-matched as OstyGuard setup but redirect not effect-modeled
+- The Scythe, Eradicate — listed but mechanics not effect-modeled (likely big damage, handled via dynamic vars)
+- Lethality — temporary strength buff, not effect-modeled
+- SpoilsMap/SpoilsOfBattle — token-matched with Spoils effect but mechanic not further modeled
 - Grave Warden, Danse Macabre — listed but mechanics not effect-modeled
-- Eradicate — listed but mechanics not modeled
+- Soul Storm, Death March — payoff cards; damage likely handled via dynamic vars but soul-consumption tradeoff not modeled
 
 ---
 
@@ -238,14 +243,14 @@
 | **Silent** | 6 | ~45 listed | Sly engine, poison future, shiv setup, starter strike penalty | Discard-as-engine at effect level, phantasmal, bullet time, bane, choke, defense-as-attack |
 | **Defect** | 5 | ~30 listed | Orb setup/starter strike penalty | Fission, rainbow, buffer, reboot, amplify, force field cost reduction, block conditionals |
 | **Regent** | 4 | ~25 listed | Star setup/starter strike penalty | Specific star/forge mechanics, void form persistent, forge upgrade mechanic |
-| **Necrobinder** | 4 | ~20 listed | **Extensive** — soul cards in 3 scoring layers | Invoke/summon/osty mechanic, reaper form transformation, delayed effects |
+| **Necrobinder** | 4 | ~20 listed | **Extensive** — soul cards in 3 scoring layers + SummonOsty/Countdown/ReaperForm/Sacrifice bonuses | Bodyguard redirect, Soul Storm/Death March soul-consumption tradeoff, remaining unlisted cards |
 | **Colorless** | 0 | 0 listed | None | All colorless cards are effect-blind beyond basic damage/block/draw |
 
 ---
 
 ## Recommended Implementation Priority
 
-1. **Necrobinder** cards outside soul/osty archetype — currently focusing debug on this character, need remaining cards understood
+1. ~~**Necrobinder** cards outside soul/osty archetype~~ — SummonOsty, SummonAlly, Sacrifice, Countdown, ReaperForm effects + scoring added (Invoke, Summon, Sacrifice, Reanimate, Countdown, Reaper Form). Remaining: Bodyguard redirect, Soul Storm/Death March soul-consumption tradeoff.
 2. **Ironclad exhaust/wound synergy** — status generation cards not modeled as setup
 3. **Silent discard-engine cards** (Tactician, Reflex, Calculated Gamble) — listed in builds but discard trigger not effect-modeled
 4. **Colorless cards** — enhance basic effect parsing or add special cases for major ones (Apotheosis, The Bomb, etc.)

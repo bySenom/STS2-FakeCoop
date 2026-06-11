@@ -278,6 +278,31 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Spoils", amount: 1);
         }
 
+        if (MatchesToken(text, "INVOKE", "REANIMATE"))
+        {
+            AddPowerIfMissing(effects, "SummonOsty", amount: 1);
+        }
+
+        if (MatchesToken(text, "SUMMON"))
+        {
+            AddPowerIfMissing(effects, "SummonAlly", amount: 1);
+        }
+
+        if (MatchesToken(text, "SACRIFICE"))
+        {
+            AddPowerIfMissing(effects, "Sacrifice", amount: 1);
+        }
+
+        if (MatchesToken(text, "COUNTDOWN"))
+        {
+            AddPowerIfMissing(effects, "Countdown", amount: 1);
+        }
+
+        if (MatchesToken(text, "REAPERFORM"))
+        {
+            AddPowerIfMissing(effects, "ReaperForm", amount: 1);
+        }
+
         if (effects.Count == baseEffects.Count &&
             effects.Count == 0 &&
             cardType is CardType.Skill or CardType.Power &&

@@ -925,6 +925,39 @@ internal sealed class CombatActionScorer
             }
         }
 
+        if (card.AppliesPower("SummonOsty"))
+        {
+            score += context.ActiveBuild?.IsLocked == true ? 48 : 32;
+            score += context.IsEliteOrBossCombat ? 18 : 8;
+        }
+
+        if (card.AppliesPower("SummonAlly"))
+        {
+            score += context.ActiveBuild?.IsLocked == true ? 34 : 22;
+        }
+
+        if (card.AppliesPower("Countdown"))
+        {
+            score += context.ActiveBuild?.IsLocked == true ? 22 : 14;
+        }
+
+        if (card.AppliesPower("Sacrifice"))
+        {
+            bool hasOsty = context.HandCardsByInstanceId.Values.Any(static c => c.AppliesPower("SummonOsty") || c.AppliesPower("SummonAlly"));
+            if (hasOsty)
+            {
+                score += 36;
+            }
+
+            score += context.ActiveBuild?.IsLocked == true ? 20 : 10;
+        }
+
+        if (card.AppliesPower("ReaperForm"))
+        {
+            score += context.ActiveBuild?.IsLocked == true ? 52 : 36;
+            score += context.IsEliteOrBossCombat ? 24 : 12;
+        }
+
         if (CombatBuildRoleEvaluator.IsWeakStarterStrike(card) &&
             HasAffordableHigherBuildDamageAction(context, action, damage))
         {
