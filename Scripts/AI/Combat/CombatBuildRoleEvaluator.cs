@@ -361,7 +361,7 @@ internal static class CombatBuildRoleEvaluator
         return HasToken(card, "DUALCAST", "MULTICAST", "RECURSION", "CONSUME", "CONSUMING");
     }
 
-    private static bool IsStarSetupCard(ResolvedCardView card)
+    public static bool IsStarSetupCard(ResolvedCardView card)
     {
         return HasToken(
             card,
@@ -374,7 +374,7 @@ internal static class CombatBuildRoleEvaluator
             "VENERATE");
     }
 
-    private static bool IsStarPayoffCard(ResolvedCardView card)
+    public static bool IsStarPayoffCard(ResolvedCardView card)
     {
         return HasToken(card, "BIGBANG", "BLACKHOLE", "METEOR", "BOMBARDMENT", "GAMMA", "PHOTON", "KNOCKOUT");
     }
