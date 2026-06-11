@@ -249,3 +249,11 @@
 - Potion timing policy: dangerous potions receive an initial beam bonus and first-action timing bonus during line planning, especially in elite/boss fights, at low HP, or when uncovered incoming damage is high.
 - Line-depth policy: combat planning now evaluates up to five actions with a slightly wider beam. Terminal lines are penalized when they spend tempo on weak starter Strikes while affordable draw or engine setup remains unplayed.
 - Verification: reward telemetry should show concrete `activeBuildId`; combat resolver logs should stop showing empty effects for key setup cards; starter Strikes should lose to `Zap`, `Venerate`, `Bodyguard`, core powers, and similar setup cards when the turn is safe.
+
+## Late-Draw Energy Discipline
+
+- Patch points: `CombatActionScorer.ScoreResourceSetup`, `CombatTurnLinePlanner.ScoreBuildRotation`, `CombatTurnLinePlanner.LineNode.Apply`.
+- Decision: draw cards (especially Necrobinder Soul draw and Silent Sly engine cards) now receive heavy score penalties when played without energy for follow-up. Previously, Necrobinder early-soul cards retained a +52 bonus even when `hasSpendableFollowUp` was false. Now the bonus drops to +10.
+- Reasoning: telemetry showed repeated `late_draw_no_energy` for Soul and Neurosurge plays at energy=0 with scores as high as 366-420. Drawing cards when no energy remains to play them wastes line slots and delays actual damage/block actions. Long Necro/Soul chains consumed all 5 beam slots without leaving room for impactful cards.
+- Line-planning changes: in `ScoreBuildRotation`, late soul cards with `EnergyRemaining <= 0` now return -24 (was +24). In `Apply`, late soul cards with no energy now subtract 12 instead of adding 18. Same pattern applied to Silent Sly engine cards.
+- Verification: `late_draw_no_energy` diagnosis should still fire when draw is chosen at energy=0, but the chosen action should no longer be the draw card itself when non-draw alternatives exist. The score for zero-energy draw plays should be significantly lower than alternatives.

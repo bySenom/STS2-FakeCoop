@@ -721,7 +721,18 @@ internal sealed class CombatTurnLinePlanner
 
                 if (action.IsNecrobinderEarlySoulCard)
                 {
-                    next.SetupScore += ActionIds.Count <= 1 ? 90 : 18;
+                    if (ActionIds.Count <= 1)
+                    {
+                        next.SetupScore += 90;
+                    }
+                    else if (next.EnergyRemaining > 0)
+                    {
+                        next.SetupScore += 18;
+                    }
+                    else
+                    {
+                        next.SetupScore -= 12;
+                    }
                 }
 
                 if (action.IsPriorityDrawBlockCard)
@@ -731,7 +742,19 @@ internal sealed class CombatTurnLinePlanner
 
                 if (action.IsSilentSlyEngineCard)
                 {
-                    next.SetupScore += ActionIds.Count <= 1 ? 62 : 16;
+                    if (ActionIds.Count <= 1)
+                    {
+                        next.SetupScore += 62;
+                    }
+                    else if (next.EnergyRemaining > 0)
+                    {
+                        next.SetupScore += 16;
+                    }
+                    else
+                    {
+                        next.SetupScore -= 10;
+                    }
+
                     if (next.EnergyRemaining > 0)
                     {
                         next.SetupScore += ActionIds.Count <= 1 ? 24 : 6;
@@ -750,29 +773,39 @@ internal sealed class CombatTurnLinePlanner
 
         private int ScoreBuildRotation(DeterministicCombatContext context, PlannableAction action)
         {
-            if (action.IsNecrobinderEarlySoulCard)
+        if (action.IsNecrobinderEarlySoulCard)
+        {
+            bool soulIsFirstAction = ActionIds.Count <= 1;
+            if (EnergyRemaining <= 0 && !soulIsFirstAction)
             {
-                bool soulIsFirstAction = ActionIds.Count <= 1;
-                int soulScore = soulIsFirstAction ? 140 : 24;
-                if (EnergyRemaining > 0)
-                {
-                    soulScore += soulIsFirstAction ? 36 : 8;
-                }
-
-                return soulScore;
+                return -24;
             }
 
-            if (action.IsSilentSlyEngineCard)
+            int soulScore = soulIsFirstAction ? 140 : 24;
+            if (EnergyRemaining > 0)
             {
-                bool slyIsFirstAction = ActionIds.Count <= 1;
-                int slyScore = slyIsFirstAction ? 112 : 22;
-                if (EnergyRemaining > 0)
-                {
-                    slyScore += slyIsFirstAction ? 34 : 8;
-                }
-
-                return slyScore;
+                soulScore += soulIsFirstAction ? 36 : 8;
             }
+
+            return soulScore;
+        }
+
+        if (action.IsSilentSlyEngineCard)
+        {
+            bool slyIsFirstAction = ActionIds.Count <= 1;
+            if (EnergyRemaining <= 0 && !slyIsFirstAction)
+            {
+                return -18;
+            }
+
+            int slyScore = slyIsFirstAction ? 112 : 22;
+            if (EnergyRemaining > 0)
+            {
+                slyScore += slyIsFirstAction ? 34 : 8;
+            }
+
+            return slyScore;
+        }
 
             if (context.ActiveBuild == null || action.BuildRole == CombatBuildRole.None)
             {

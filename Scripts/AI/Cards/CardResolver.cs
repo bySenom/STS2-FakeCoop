@@ -228,7 +228,7 @@ internal sealed class CardResolver : ICardResolver
         List<NormalizedEffectDescriptor> effects = baseEffects.ToList();
         string text = $"{cardId} {name} {description}";
 
-        if (MatchesToken(text, "ZAP", "BALLLIGHTNING", "LIGHTNINGORB", "CHANNEL1LIGHTNING"))
+        if (MatchesToken(text, "ZAP", "BALLLIGHTNING", "LIGHTNINGORB", "CHANNEL1LIGHTNING", "TEMPEST"))
         {
             AddPowerIfMissing(effects, "LightningOrb", amount: 1);
         }
@@ -258,22 +258,17 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Focus", amount: 1);
         }
 
-        if (MatchesToken(text, "VENERATE", "GUIDINGSTAR", "STARDUST", "CONVERGENCE", "CONQUEROR"))
+        if (MatchesToken(text, "VENERATE", "GUIDINGSTAR", "STARDUST", "CONVERGENCE", "CONQUEROR", "FALLINGSTAR", "SEVENSTARS", "GLOW"))
         {
             AddPowerIfMissing(effects, "Star", amount: 1);
         }
 
-        if (MatchesToken(text, "FALLINGSTAR"))
-        {
-            AddPowerIfMissing(effects, "Star", amount: 1);
-        }
-
-        if (MatchesToken(text, "BODYGUARD"))
+        if (MatchesToken(text, "BODYGUARD", "GUARDIAN", "PROTECT"))
         {
             AddPowerIfMissing(effects, "OstyGuard", amount: 1, targetScope: TargetScope.SingleAlly);
         }
 
-        if (MatchesToken(text, "BORROWEDTIME", "RIGHTHANDHAND", "SOUL"))
+        if (MatchesToken(text, "BORROWEDTIME", "RIGHTHANDHAND", "SOUL", "HAUNT", "CAPTURE", "SPIRIT", "DIRGE"))
         {
             AddPowerIfMissing(effects, "Soul", amount: 1);
         }

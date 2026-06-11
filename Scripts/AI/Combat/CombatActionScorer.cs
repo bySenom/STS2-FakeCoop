@@ -344,15 +344,15 @@ internal sealed class CombatActionScorer
                 ? cardsDrawn * resource.DrawValueWhenPlayable
                 : -cardsDrawn * resource.DrawPenaltyWhenNotPlayable;
 
-            if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
-            {
-                score += hasSpendableFollowUp ? 80 : 52;
-            }
+        if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
+        {
+            score += hasSpendableFollowUp ? 80 : 10;
+        }
 
-            if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
-            {
-                score += hasSpendableFollowUp ? 72 : 40;
-            }
+        if (CombatBuildRoleEvaluator.IsSilentSlyEngineCard(context, card))
+        {
+            score += hasSpendableFollowUp ? 72 : 8;
+        }
         }
 
         if (CombatBuildRoleEvaluator.IsNecrobinderEarlySoulCard(context, card))
