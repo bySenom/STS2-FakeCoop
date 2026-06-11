@@ -223,10 +223,16 @@ All 18 Necrobinder cards from the build archetypes now have effect-level underst
 | Bone Shards | `OstySacrifice` | Osty sacrifice AOE (+48 if Osty build/summon, 18–30 base) |
 | Danse Macabre | Token DANSEMACABRE | Block power, +10 per 2+ cost card in hand (10–18 base) |
 
-### Remaining Gaps (Minor)
-- SpoilsMap/SpoilsOfBattle — token-matched with Spoils effect but mechanic not further modeled
-- Soul Storm / Death March exact scaling formula (soul count / draw count in exhaust/drawn pile) — approximated via hand context
-- The Scythe permanent damage increase not tracked across plays
+### Previously Minor Gaps — Now Resolved
+| Gap | Before | After |
+|-----|--------|-------|
+| Soul Storm scaling (souls in exhaust) | Approximated via count of Soul cards in hand | **Now reads actor power** (tries SOUL/Souls keys) with fallback to hand+deck estimation. Extra damage = soulCount × 2(3 if upgraded) × 6 score multiplier |
+| Death March scaling (cards drawn this turn) | Counted draw cards in hand | **Now sums total draw capacity** of all cards in hand. Extra damage = totalDraw × 3(4 if upgraded) × 6 score multiplier |
+| The Scythe permanent scaling | Exhaust bonus only | **Now adds +3(+4 if upgraded) × 6** for permanent damage increase as a combat-progression bonus |
+
+### Trivial / Out of Scope
+- SpoilsMap = Colorless Quest card (Unplayable, marks 600 gold in next Act) — not a combat mechanic
+- SpoilsOfBattle = Regent Common Skill (Forge 5, Draw 2) — Forge mechanic not modeled (Regent-specific, not Necrobinder)
 
 ---
 

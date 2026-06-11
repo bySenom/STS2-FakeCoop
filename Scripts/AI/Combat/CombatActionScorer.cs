@@ -960,23 +960,35 @@ internal sealed class CombatActionScorer
 
         if (HasCardToken(card, "SOULSTORM"))
         {
-            int soulCardsInHand = context.HandCardsByInstanceId.Values
-                .Count(static c => c.AppliesPower("Soul"));
-            score += Math.Min(soulCardsInHand, 8) * 14;
+            int soulPowerCount = GetActorPowerAmountAnyCase(context,
+                "SOUL", "Soul", "Souls", "SOULS", "SoulCount", "SOULCOUNT");
+            if (soulPowerCount <= 0)
+            {
+                int soulCardsInHand = context.HandCardsByInstanceId.Values
+                    .Count(static c => c.AppliesPower("Soul"));
+                int soulCardsInDeck = context.DeckCards.Count(static c => c.AppliesPower("Soul"));
+                soulPowerCount = Math.Min(soulCardsInHand + soulCardsInDeck / 2, 12);
+            }
+
+            int extraDamage = soulPowerCount * (card.IsUpgraded ? 3 : 2);
+            score += extraDamage * 6;
             score += context.ActiveBuild?.IsLocked == true ? 26 : 14;
             score += context.IsEliteOrBossCombat ? 14 : 6;
         }
 
         if (HasCardToken(card, "DEATHMARCH"))
         {
-            int drawCardsInHand = context.HandCardsByInstanceId.Values
-                .Count(static c => c.GetCardsDrawn() > 0);
-            score += drawCardsInHand * 14;
+            int totalDrawEstimate = context.HandCardsByInstanceId.Values
+                .Sum(static c => c.GetCardsDrawn());
+            int extraDamage = totalDrawEstimate * (card.IsUpgraded ? 4 : 3);
+            score += extraDamage * 6;
             score += context.ActiveBuild?.IsLocked == true ? 22 : 12;
         }
 
         if (HasCardToken(card, "SCYTHE"))
         {
+            int scalingDamage = card.IsUpgraded ? 4 : 3;
+            score += scalingDamage * 6;
             score += card.Exhaust ? 22 : 0;
             score += context.ActiveBuild?.IsLocked == true ? 20 : 10;
         }
@@ -1341,6 +1353,19 @@ internal sealed class CombatActionScorer
     private static int GetActorPowerAmount(DeterministicCombatContext context, string powerId)
     {
         return context.ActorPowerAmounts.TryGetValue(powerId, out int amount) ? amount : 0;
+    }
+
+    private static int GetActorPowerAmountAnyCase(DeterministicCombatContext context, params string[] possibleKeys)
+    {
+        foreach (string key in possibleKeys)
+        {
+            if (context.ActorPowerAmounts.TryGetValue(key, out int amount))
+            {
+                return amount;
+            }
+        }
+
+        return 0;
     }
 
     private static int GetDamageHits(ResolvedCardView card)

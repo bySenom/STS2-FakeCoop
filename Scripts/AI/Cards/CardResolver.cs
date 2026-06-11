@@ -273,11 +273,6 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Soul", amount: 1);
         }
 
-        if (MatchesToken(text, "SPOILSMAP", "SPOILSOFBATTLE"))
-        {
-            AddPowerIfMissing(effects, "Spoils", amount: 1);
-        }
-
         if (MatchesToken(text, "INVOKE", "REANIMATE"))
         {
             AddPowerIfMissing(effects, "SummonOsty", amount: 1);

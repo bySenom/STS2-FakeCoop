@@ -272,9 +272,9 @@
 ### Scoring Details
 | Card | Scoring Logic |
 |------|--------------|
-| Soul Storm | +14 per Soul-tagged card in hand (cap 8), +14–26 locked base |
-| Death March | +14 per draw card in hand, +12–22 locked base |
-| The Scythe | +22 for Exhaust, +10–20 locked base |
+| Soul Storm | Soul count × 2(3 if upgraded) × 6 score → tries actor powers first (SOUL/Soul keys), fallback hand+deck/2 estimation (cap 12). Base +14–26 locked, +6–14 elite/boss |
+| Death March | Total draw capacity of hand cards × 3(4 if upgraded) × 6 score. Base +12–22 locked |
+| The Scythe | Permanent scaling +3(4 if upgraded) × 6 score, +22 exhaust, +10–20 locked base |
 | Eradicate | +14 per energy to spend, +12 for Retain, +8–18 locked base |
 | Lethality | +4 per attack damage in hand (cap 30*4), +18–28 locked base |
 | Bone Shards | +48 if Osty build/summon in hand, +18–30 locked base |
@@ -282,3 +282,13 @@
 | Grave Warden | Soul effect (soul generation) + existing archetype support scoring |
 
 - Verification: with a Necrobinder hand containing Soul Storm and 3 Soul cards, the `future=...` log should show a bonus for soul-scaling; Lethality should get extra value proportional to held attack damage.
+
+### Third Batch — Exact Scaling + Spoils Cleanup (Batch 3)
+- Patch points: `CombatActionScorer.ScoreNecrobinderFutureValue` (Soul Storm, Death March, The Scythe), `CardResolver.AddInferredSemanticEffects` (removed dead Spoils matching).
+- Changes:
+  - **Soul Storm**: now reads actor power keys (SOUL, Soul, Souls, SOULS, SoulCount, SOULCOUNT) for live soul-in-exhaust count; fallback estimates from hand soul cards + deck/2 persistence. Extra damage = soulCount × 2(3 upgraded) × 6 score multiplier.
+  - **Death March**: sums total draw capacity of all hand cards instead of counting draw-card count. Extra damage = totalDraw × 3(4 upgraded) × 6 score multiplier.
+  - **The Scythe**: adds +3(4 upgraded) × 6 for permanent scaling as combat-progression bonus, independent of exhaust/exhaust-bonus.
+  - **Spoils removed**: `MatchesToken("SPOILSMAP", "SPOILSOFBATTLE")` effect was dead code — SpoilsMap is a Colorless Quest card (Unplayable, marks 600 gold), SpoilsOfBattle is Regent (Forge 5, Draw 2). Neither is Necrobinder combat.
+- Added helper `GetActorPowerAmountAnyCase(context, params string[])` for flexible power key lookup.
+- Verification: Soul Storm should score higher with more Soul cards in exhaust pile; Death March should scale with per-card draw amounts (e.g., Borrowed Time drawing 2 is double the scaling of a 1-draw card); The Scythe scaling shows as bonus in future score component.
