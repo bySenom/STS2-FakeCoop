@@ -308,6 +308,21 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "Lethality", amount: 1);
         }
 
+        if (MatchesToken(text, "BLADEDANCE", "CLOAKANDDAGGER", "INFINITEBLADES", "SHIV", "FINISHER", "FANOFKNIVES"))
+        {
+            AddPowerIfMissing(effects, "Shiv", amount: 1);
+        }
+
+        if (MatchesToken(text, "CALTROPS"))
+        {
+            AddPowerIfMissing(effects, "Caltrops", amount: 1);
+        }
+
+        if (MatchesToken(text, "WRAITHFORM"))
+        {
+            AddPowerIfMissing(effects, "Intangible", amount: 1);
+        }
+
         if (effects.Count == baseEffects.Count &&
             effects.Count == 0 &&
             cardType is CardType.Skill or CardType.Power &&

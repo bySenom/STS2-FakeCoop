@@ -864,6 +864,33 @@ internal sealed class CombatActionScorer
             score -= buildId is "sly" or "poison" or "shiv" ? 58 : 34;
         }
 
+        if (card.AppliesPower("Caltrops"))
+        {
+            int enemyAttackCount = context.EnemiesById.Values.Count(static e => e.IsAttacking);
+            int thornsDamage = card.IsUpgraded ? 5 : 3;
+            score += Math.Min(enemyAttackCount * thornsDamage * 6, 80);
+            score += context.IsEliteOrBossCombat ? 25 : 12;
+        }
+
+        if (card.AppliesPower("Intangible"))
+        {
+            int intangibleStacks = card.IsUpgraded ? 4 : 2;
+            int incomingDmg = context.IncomingDamage;
+            score += Math.Min(incomingDmg * 4, 120);
+            score += intangibleStacks * 6;
+            score += context.IsEliteOrBossCombat ? 30 : 16;
+        }
+
+        if (card.AppliesPower("Shiv"))
+        {
+            int shivPayoffs = context.HandCardsByInstanceId.Values.Count(CombatBuildRoleEvaluator.IsSilentShivPayoffCard);
+            score += 28 + shivPayoffs * 14;
+            if (buildId is "shiv" or "envenom")
+            {
+                score += 22;
+            }
+        }
+
         return score;
     }
 
