@@ -437,7 +437,20 @@ internal sealed class CombatActionScorer
 
     private static int GetTeamAdjustedEnemyHp(DeterministicCombatContext context, string targetId, DeterministicEnemyState enemy)
     {
-        return CombatTeamDamageReservationPolicy.GetEffectiveEnemyHp(context, targetId, enemy);
+        int adjustedHp = CombatTeamDamageReservationPolicy.GetEffectiveEnemyHp(context, targetId, enemy);
+        if (adjustedHp <= 0)
+        {
+            return 0;
+        }
+
+        // If enemy will die from poison before its next turn, treat as already dead
+        int poison = GetEnemyPowerAmount(enemy, "POISON");
+        if (poison >= adjustedHp)
+        {
+            return 0;
+        }
+
+        return adjustedHp;
     }
 
     private static bool IsAllEnemiesDamage(ResolvedCardView card)
@@ -773,6 +786,7 @@ internal sealed class CombatActionScorer
         score += ScoreSilentFutureValue(context, action, card);
         score += ScoreDefectFutureValue(context, action, card);
         score += ScoreIroncladFutureValue(context, action, card);
+        score += ScoreRegentFutureValue(context, action, card);
         return score;
     }
 
@@ -1252,6 +1266,95 @@ internal sealed class CombatActionScorer
             int attacksInHand = context.HandCardsByInstanceId.Values.Count(c => c.Type == CardType.Attack);
             score += Math.Min(attacksInHand * 8, 40);
             score += buildId == "barricade" ? 18 : 8;
+        }
+
+        return score;
+    }
+
+    private static int ScoreRegentFutureValue(DeterministicCombatContext context, AiLegalActionOption action, ResolvedCardView card)
+    {
+        if (!string.Equals(context.CombatConfig.CharacterId, "regent", StringComparison.OrdinalIgnoreCase) &&
+            context.ActiveBuild?.Profile.CharacterId != "regent")
+        {
+            return 0;
+        }
+
+        int score = 0;
+        string buildId = context.ActiveBuild?.Profile.BuildId ?? string.Empty;
+        bool isStarBuild = CombatBuildRoleEvaluator.IsStarSetupBuild(context);
+
+        // Star generation (setup) — Venerate, Guiding Star, Stardust, Seven Stars, Falling Star
+        if (CombatBuildRoleEvaluator.IsStarSetupCard(card))
+        {
+            int starPayoffsInHand = context.HandCardsByInstanceId.Values.Count(CombatBuildRoleEvaluator.IsStarPayoffCard);
+            int starPayoffsInDeck = context.DeckCards.Count(CombatBuildRoleEvaluator.IsStarPayoffCard);
+            score += starPayoffsInHand * 22;
+            score += Math.Min(starPayoffsInDeck, 5) * 8;
+            score += isStarBuild ? 26 : 14;
+            score += context.IsEliteOrBossCombat ? 14 : 6;
+
+            if (HasCardToken(card, "FALLINGSTAR"))
+            {
+                score += 16;
+            }
+        }
+
+        // Forge build: weapon scaling (Seeking Edge, Conqueror, Sword Sage, Forge, Sovereign Blade)
+        if (buildId == "forge" && HasCardToken(card, "SEEKING", "CONQUEROR", "SWORD", "FORGE", "SOVEREIGN"))
+        {
+            int forge = GetActorPowerAmount(context, "FORGE");
+            score += forge * 10;
+            score += context.IsEliteOrBossCombat ? 18 : 10;
+        }
+
+        // Engine draw cards (Glow, Convergence, Decisions, Decisions)
+        if (HasCardToken(card, "GLOW", "CONVERGENCE", "DECISIONS"))
+        {
+            score += card.GetCardsDrawn() * 14;
+            score += card.GetEnergyGain() * 16;
+            score += isStarBuild ? 20 : 10;
+        }
+
+        // Star payoff cards — Big Bang, Black Hole, Gamma Blast, Meteor Shower, Knockout, Photon
+        if (CombatBuildRoleEvaluator.IsStarPayoffCard(card))
+        {
+            int star = GetActorPowerAmount(context, "STAR");
+            int setupCardsInHand = context.HandCardsByInstanceId.Values.Count(CombatBuildRoleEvaluator.IsStarSetupCard);
+            score += Math.Min(star * 10, 80);
+            score += setupCardsInHand * 12;
+            score += isStarBuild ? 30 : 18;
+            score += context.IsEliteOrBossCombat ? 20 : 8;
+        }
+
+        // Conqueror — forge payoff + star synergy
+        if (HasCardToken(card, "CONQUEROR"))
+        {
+            int forge = GetActorPowerAmount(context, "FORGE");
+            int starPayoffsInDeck = context.DeckCards.Count(CombatBuildRoleEvaluator.IsStarPayoffCard);
+            score += forge * 8;
+            score += Math.Min(starPayoffsInDeck * 6, 30);
+            score += buildId is "forge" or "bombardment" ? 20 : 10;
+        }
+
+        // Void Form — long-horizon void scaling
+        if (HasCardToken(card, "VOIDFORM"))
+        {
+            int horizon = GetFutureHorizon(context);
+            score += horizon * 22;
+            score += buildId == "void_form" ? 44 : 28;
+            score += context.IsEliteOrBossCombat ? 30 : 16;
+        }
+
+        // Bombardment — charge-up payoff
+        if (HasCardToken(card, "BOMBARD"))
+        {
+            score += 24;
+            score += buildId == "bombardment" ? 34 : 20;
+            score += context.IsEliteOrBossCombat ? 24 : 12;
+
+            int otherBombards = context.HandCardsByInstanceId.Values
+                .Count(c => c.CardId != card.CardId && HasCardToken(c, "BOMBARD"));
+            score += otherBombards * 16;
         }
 
         return score;

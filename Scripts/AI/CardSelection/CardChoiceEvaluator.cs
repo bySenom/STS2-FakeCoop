@@ -358,6 +358,7 @@ internal sealed class CardChoiceEvaluator
         score += ScoreSilentContext(card, features, context);
         score += ScoreDefectContext(card, features, context);
         score += ScoreIroncladContext(card, features, context);
+        score += ScoreRegentContext(card, features, context);
         return score;
     }
 
@@ -630,6 +631,65 @@ internal sealed class CardChoiceEvaluator
         if (HasToken(card, "DISARM"))
         {
             score += 18d;
+        }
+
+        return score;
+    }
+
+    private static double ScoreRegentContext(ResolvedCardView card, CardFeatureVector features, CardEvaluationContext context)
+    {
+        if (!string.Equals(AiCharacterCombatConfigLoader.LoadForPlayer(context.Player).CharacterId, "regent", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0d;
+        }
+
+        double score = 0d;
+        bool earlyAct = context.CurrentActIndex == 0 && context.TotalFloor <= 10;
+
+        // Star setup cards — Venerate, Guiding Star, Falling Star, Stardust, Seven Stars, Glow, Convergence
+        if (HasToken(card, "VENERATE", "GUIDINGSTAR", "FALLINGSTAR", "STARDUST", "SEVENSTARS", "GLOW", "CONVERGENCE"))
+        {
+            int starPayoffs = context.DeckCards.Count(static c => HasToken(c, "BIGBANG", "BLACKHOLE", "METEOR", "BOMBARD", "GAMMA", "PHOTON", "KNOCKOUT"));
+            score += 18d;
+            score += Math.Min(starPayoffs, 4) * 4d;
+        }
+
+        // Star payoff cards — Big Bang, Black Hole, Meteor Shower, Gamma Blast, Knockout Blow, Photon Cut
+        if (HasToken(card, "BIGBANG", "BLACKHOLE", "METEOR", "GAMMA", "PHOTON", "KNOCKOUT"))
+        {
+            int starSetup = context.DeckCards.Count(static c => HasToken(c, "VENERATE", "GUIDINGSTAR", "FALLINGSTAR", "STARDUST", "SEVENSTARS", "GLOW", "CONVERGENCE", "CONQUEROR", "SEEKING"));
+            score += 16d;
+            score += Math.Min(starSetup, 5) * 4d;
+            score += earlyAct ? 14d : 8d;
+        }
+
+        // Forge build cards — Seeking Edge, Conqueror, Sword Sage, Forge, Sovereign Blade
+        if (HasToken(card, "SEEKING", "CONQUEROR", "SWORD", "FORGE", "SOVEREIGN"))
+        {
+            score += 16d;
+            score += context.DeckCards.Any(static c => HasToken(c, "FORGE", "SOVEREIGN")) ? 12d : 0d;
+            score += earlyAct ? 14d : 8d;
+        }
+
+        // Void Form — high-value scaling power
+        if (HasToken(card, "VOIDFORM"))
+        {
+            score += 32d;
+            score += earlyAct ? 16d : 8d;
+        }
+
+        // Bombardment — charge-up payoff
+        if (HasToken(card, "BOMBARD"))
+        {
+            score += 20d;
+            int otherBombard = context.DeckCards.Count(static c => HasToken(c, "BOMBARD"));
+            score += Math.Min(otherBombard, 4) * 4d;
+        }
+
+        // Engine cards — Glow, Convergence, Decisions Decisions
+        if (HasToken(card, "GLOW", "CONVERGENCE", "DECISIONS"))
+        {
+            score += 12d + features.Draw * 3d + features.Energy * 4d;
         }
 
         return score;
