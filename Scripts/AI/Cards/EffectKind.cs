@@ -7,4 +7,7 @@ internal enum EffectKind
     ApplyPower,
     DrawCards,
     GainEnergy,
+    ApplyBurn,
+    ApplyWound,
+    ApplySlimed,
 }

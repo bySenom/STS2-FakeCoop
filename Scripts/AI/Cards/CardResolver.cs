@@ -333,6 +333,53 @@ internal sealed class CardResolver : ICardResolver
             AddPowerIfMissing(effects, "SlyPayoff", amount: 1);
         }
 
+        // Ironclad status effects
+        if (MatchesToken(text, "BURN", "CINDER", "FIENDFIRE", "CONFLAGRATION"))
+        {
+            AddPowerIfMissing(effects, "Burn", amount: 1);
+        }
+
+        if (MatchesToken(text, "WOUND", "SLIMED", "BLOODLET", "HEMOKINESIS", "RUPTURE", "BRAND"))
+        {
+            AddPowerIfMissing(effects, "SelfWound", amount: 1);
+        }
+
+        // Ironclad block retention
+        if (MatchesToken(text, "BARRICADE", "BLOCKRETENTION"))
+        {
+            AddPowerIfMissing(effects, "BlockRetention", amount: 1);
+        }
+
+        // Ironclad block-to-damage mechanics
+        if (MatchesToken(text, "BODYSLAM", "BLOCKTODAMAGE"))
+        {
+            AddPowerIfMissing(effects, "BlockToDamage", amount: 1);
+        }
+
+        // Ironclad vulnerable damage boost
+        if (MatchesToken(text, "BULLY", "DISMANTLE", "VULNERABLEBOOST"))
+        {
+            AddPowerIfMissing(effects, "VulnerableBoost", amount: 1);
+        }
+
+        // Ironclad attack cost reduction
+        if (MatchesToken(text, "STAMPEDE", "UNRELENTING", "ATTACKCOSTREDUCTION"))
+        {
+            AddPowerIfMissing(effects, "AttackCostReduction", amount: 1);
+        }
+
+        // Ironclad energy from attacks
+        if (MatchesToken(text, "EXPECTAFIGHT", "ENERGYFROMATTACKS"))
+        {
+            AddPowerIfMissing(effects, "EnergyFromAttacks", amount: 1);
+        }
+
+        // Ironclad block on attack trigger
+        if (MatchesToken(text, "RAGE", "FLAMEBARRIER", "BLOCKONATTACK"))
+        {
+            AddPowerIfMissing(effects, "BlockOnAttack", amount: 1);
+        }
+
         if (effects.Count == baseEffects.Count &&
             effects.Count == 0 &&
             cardType is CardType.Skill or CardType.Power &&
